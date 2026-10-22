@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My News</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">📰 <span>My News</span></div>
+    <div id="weather" class="weather"></div>
+    <input id="search" type="search" placeholder="Search headlines…" autocomplete="off" />
+    <button id="refresh" title="Refresh now">↻</button>
+  </header>
+
+  <section class="alerts-wrap">
+    <h2>Alerts</h2>
+    <div id="alerts" class="alerts"><div class="muted">Loading…</div></div>
+  </section>
+
+  <section id="digest" class="digest" hidden>
+    <details open>
+      <summary>✨ Your briefing <span id="digest-at" class="muted"></span></summary>
+      <div id="digest-body" class="digest-body muted">Writing your briefing…</div>
+    </details>
+  </section>
+
+  <nav id="topics" class="topics"></nav>
+
+  <div class="toolbar">
+    <span id="count" class="muted"></span>
+    <div id="sort" class="sort" hidden>
+      <button data-sort="latest" class="on">Latest</button>
+      <button data-sort="important">Most important</button>
+    </div>
+  </div>
+
+  <main id="feed" class="feed"></main>
+  <footer class="muted" id="updated"></footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
