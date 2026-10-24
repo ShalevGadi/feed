@@ -29,16 +29,23 @@ async function fetchText(url, signal) {
 }
 
 /**
- * Fetch through the relay. With public relays, all are asked at once and the
- * first good answer wins — much faster than trying them one by one.
+ * Fetch through the relay. With public relays, a backup relay is asked when
+ * the first one is slow, and the first good answer wins.
  */
-export async function fetchViaRelay(url, { timeoutMs = 10000 } = {}) {
+export async function fetchViaRelay(url, { timeoutMs = 12000 } = {}) {
   const urls = relayUrls(url);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new DOMException("timed out", "TimeoutError")), timeoutMs);
   try {
     if (urls.length === 1) return await fetchText(urls[0], controller.signal);
-    return await Promise.any(urls.map((u) => fetchText(u, controller.signal)));
+    // Ask the first relay; only if it's slow (or fails) also ask the backup.
+    // Asking every relay at once overloads them and they start refusing.
+    let startBackup;
+    const backupGate = new Promise((r) => { startBackup = r; setTimeout(r, 4000); });
+    const first = fetchText(urls[0], controller.signal);
+    first.catch(() => startBackup());
+    const backups = urls.slice(1).map((u) => backupGate.then(() => fetchText(u, controller.signal)));
+    return await Promise.any([first, ...backups]);
   } catch (err) {
     throw err instanceof AggregateError ? err.errors.find((e) => e.name !== "AbortError") || err.errors[0] : err;
   } finally {
@@ -185,7 +192,7 @@ export function buildArticles(rawItems) {
 }
 
 // Stop starting new feeds after this long; anything still pending is skipped.
-const DEADLINE_MS = 15000;
+const DEADLINE_MS = 20000;
 
 /**
  * Fetch all feeds, several at a time. `onProgress(articles, done, total)` is
@@ -204,6 +211,7 @@ export async function fetchAllArticles(onProgress) {
       onProgress?.(raw, ++done, urls.length);
     }
   }
-  await Promise.all(Array.from({ length: 10 }, worker));
+  const parallel = localRelay || PROXY_URL ? 10 : 4; // public relays throttle heavy use
+  await Promise.all(Array.from({ length: parallel }, worker));
   return buildArticles(raw);
 }
