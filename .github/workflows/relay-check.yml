@@ -1,0 +1,28 @@
+# Diagnostic: calls the Cloudflare relay from GitHub's servers and reports what it answers.
+name: Relay check
+
+on:
+  push:
+    paths: [".github/workflows/relay-check.yml", "relay/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call relay
+        run: |
+          RELAY=https://news-relay.shalevgadi.workers.dev
+          for target in "https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&year=now&month=1" "https://feeds.bbci.co.uk/news/world/rss.xml"; do
+            for origin in "" "https://shalevgadi.github.io"; do
+              out=$(curl -sS -m 20 -o /tmp/body -w "%{http_code} %{time_total}s" ${origin:+-H "Origin: $origin"} "$RELAY/?url=$(jq -rn --arg u "$target" '$u|@uri')" 2>&1 || true)
+              body=$(head -c 60 /tmp/body 2>/dev/null | tr -d '\n\r' | tr -c '[:print:]' ' ')
+              echo "::notice title=relay ${origin:-no-origin} $(echo $target | cut -d/ -f3)::$out | $body"
+            done
+          done
+          out=$(curl -sS -m 20 -o /tmp/body -w "%{http_code} %{time_total}s" "https://feeds.bbci.co.uk/news/world/rss.xml" 2>&1 || true)
+          echo "::notice title=direct BBC from GitHub::$out"
