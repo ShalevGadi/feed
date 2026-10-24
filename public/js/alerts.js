@@ -1,13 +1,12 @@
-import {
-  LOCATION, HEADLINE_ALERTS, SPECIAL_DAYS, LOOKAHEAD_DAYS, WEATHER_THRESHOLDS,
-} from "./config.js";
-import { matchesAny } from "./feeds.js";
+import { HEADLINE_ALERTS, SPECIAL_DAYS, LOOKAHEAD_DAYS, WEATHER_THRESHOLDS } from "./config.js";
+import { matchesAny, fetchViaRelay } from "./feeds.js";
+import { getLocation } from "./location.js";
 
 const DAY = 24 * 3600 * 1000;
 
 /** YYYY-MM-DD in the configured timezone. */
 function ymd(date) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: LOCATION.timezone }).format(date);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: getLocation().timezone }).format(date);
 }
 
 function daysUntil(dateStr) {
@@ -21,10 +20,15 @@ function whenLabel(n) {
   return `In ${n} days`;
 }
 
+// Open-Meteo and Hebcal allow browsers to call them directly; the relay is only a fallback.
 async function getJson(url) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  return res.json();
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return await res.json();
+  } catch {
+    return JSON.parse(await fetchViaRelay(url));
+  }
 }
 
 // ---------- Weather (Open-Meteo, free, no key) ----------
@@ -32,6 +36,7 @@ const WMO_STORM = new Set([95, 96, 99]);
 const WMO_SNOW = new Set([71, 73, 75, 77, 85, 86]);
 
 export async function weather() {
+  const LOCATION = getLocation();
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${LOCATION.lat}&longitude=${LOCATION.lon}` +
     `&current=temperature_2m,weather_code,wind_speed_10m` +

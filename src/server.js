@@ -1,56 +1,61 @@
-// Local mode: a live server on your own computer, with optional free local AI.
-// (The GitHub Pages version uses scripts/build.js instead — same page, same data.)
+// Local mode (npm start): serves the same page as GitHub Pages, plus
+//  - a feed relay, so no public relay is needed, and
+//  - optional free local AI through Ollama.
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { REFRESH_MINUTES } from "./config.js";
-import { collect, toSnapshot, healthReport } from "./snapshot.js";
+import { TOPICS } from "../public/js/config.js";
 import * as ai from "./ai.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
 
-const state = { articles: [], alerts: [], weather: null, updatedAt: null, refreshing: null };
-
-async function refresh() {
-  if (state.refreshing) return state.refreshing;
-  state.refreshing = (async () => {
-    const started = Date.now();
-    try {
-      const { articles, alerts, weather } = await collect(ai.enrich);
-      Object.assign(state, { articles, alerts, weather, updatedAt: new Date().toISOString() });
-      const health = Object.values(healthReport());
-      console.log(`[refresh] ${articles.length} articles, ${alerts.length} alerts, feeds ${health.filter((h) => h.ok).length}/${health.length} ok, ${Date.now() - started} ms`);
-    } catch (err) {
-      console.error("[refresh] failed:", err);
-    } finally {
-      state.refreshing = null;
-    }
-  })();
-  return state.refreshing;
-}
+// The relay only fetches the sites this app uses, so it can't be abused as an open proxy.
+const ALLOWED_HOSTS = new Set([
+  ...TOPICS.flatMap((t) => t.feeds).map((u) => new URL(u).hostname),
+  "api.open-meteo.com",
+  "geocoding-api.open-meteo.com",
+  "www.hebcal.com",
+]);
 
 const app = express();
+app.use(express.json({ limit: "2mb" }));
 
-app.get("/data.json", async (_req, res) => {
-  // AI tags arrive in the background, so apply the latest ones on every request.
-  const articles = ai.applyTags(state.articles);
-  const digest = ai.aiEnabled ? await ai.digest(articles, state.alerts) : null;
-  res.json(toSnapshot({ ...state, articles, aiEnabled: ai.aiEnabled, digest }));
+app.get("/api/info", (_req, res) => res.json({ relay: true, ai: ai.aiEnabled }));
+
+app.get("/proxy", async (req, res) => {
+  let target;
+  try {
+    target = new URL(String(req.query.url));
+  } catch {
+    return res.status(400).send("bad url");
+  }
+  if (!/^https?:$/.test(target.protocol) || !ALLOWED_HOSTS.has(target.hostname)) {
+    return res.status(403).send("host not allowed");
+  }
+  try {
+    const upstream = await fetch(target, {
+      headers: { "User-Agent": "Mozilla/5.0 (PersonalNewsFeed/1.0)", Accept: "application/rss+xml, application/xml, text/xml, */*" },
+      signal: AbortSignal.timeout(15000),
+    });
+    res.status(upstream.status).type(upstream.headers.get("content-type") || "text/xml").send(await upstream.text());
+  } catch (err) {
+    res.status(502).send(err.message);
+  }
 });
 
-app.get("/health.json", (_req, res) => res.json(healthReport()));
+app.post("/api/tag", (req, res) => {
+  res.json({ tags: ai.tag(Array.isArray(req.body?.articles) ? req.body.articles : []) });
+});
 
-app.post("/api/refresh", async (_req, res) => {
-  await refresh();
-  res.json({ ok: true, updatedAt: state.updatedAt });
+app.post("/api/digest", async (req, res) => {
+  const d = await ai.digest(req.body?.articles || [], req.body?.alerts || []);
+  res.json({ text: d?.text || null, at: d?.at || null });
 });
 
 app.use(express.static(path.join(here, "..", "public")));
 
 app.listen(PORT, async () => {
   await ai.initAI();
-  console.log(`News feed on http://localhost:${PORT}  (AI ${ai.aiEnabled ? `on: ${process.env.OLLAMA_MODEL}` : "off — optional, see README"})`);
-  refresh();
-  setInterval(refresh, REFRESH_MINUTES * 60 * 1000);
+  console.log(`News feed on http://localhost:${PORT}  (local AI ${ai.aiEnabled ? `on: ${process.env.OLLAMA_MODEL}` : "off — optional, see README"})`);
 });

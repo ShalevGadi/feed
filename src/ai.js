@@ -2,7 +2,7 @@
 // (https://ollama.com) on your own computer. No account, no API key, no cost.
 // Without it the site works fine using keyword matching; with it, articles get
 // smarter topic tags, an importance score, a one-line summary, and a briefing.
-import { TOPICS, HEADLINE_ALERTS } from "./config.js";
+import { TOPICS, HEADLINE_ALERTS } from "../public/js/config.js";
 
 const OLLAMA_URL = (process.env.OLLAMA_URL || "http://localhost:11434").replace(/\/$/, "");
 const MODEL = process.env.OLLAMA_MODEL || ""; // e.g. "gemma3:4b" — empty = AI off
@@ -104,35 +104,34 @@ async function tagBatch(batch) {
   }
 }
 
+const queue = new Map(); // id → article waiting to be tagged
 let tagging = false;
 
-/** Tags untagged articles in the background; returns articles with whatever tags exist so far. */
-export function enrich(articles) {
-  if (aiEnabled && !tagging) {
-    const todo = articles.filter((a) => !tagCache.has(a.id)).slice(0, 200);
-    if (todo.length) {
-      tagging = true;
-      (async () => {
-        // One batch at a time: a local model handles one request at a time anyway.
-        for (let i = 0; i < todo.length; i += BATCH_SIZE) {
-          try { await tagBatch(todo.slice(i, i + BATCH_SIZE)); }
-          catch (err) { console.error("[ai] tagging:", err.message); }
-        }
-        tagging = false;
-        console.log(`[ai] tagged ${tagCache.size} articles so far`);
-      })();
-    }
+/**
+ * Returns the tags already known for these articles and queues the rest for
+ * background tagging (the browser asks again a little later).
+ */
+export function tag(articles) {
+  const known = {};
+  for (const a of articles) {
+    if (tagCache.has(a.id)) known[a.id] = tagCache.get(a.id);
+    else if (aiEnabled) queue.set(a.id, a);
   }
-  return applyTags(articles);
+  if (aiEnabled && !tagging && queue.size) processQueue();
+  return known;
 }
 
-export function applyTags(articles) {
-  return articles.map((a) => {
-    const ai = tagCache.get(a.id);
-    if (!ai) return a;
-    // Keep the feed's own topic (an Israeli source stays in "israel") and add the model's.
-    return { ...a, ai, topics: [...new Set([...a.topics, ...ai.topics])] };
-  });
+async function processQueue() {
+  tagging = true;
+  // One batch at a time: a local model handles one request at a time anyway.
+  while (queue.size) {
+    const batch = [...queue.values()].slice(0, BATCH_SIZE);
+    batch.forEach((a) => queue.delete(a.id));
+    try { await tagBatch(batch); }
+    catch (err) { console.error("[ai] tagging:", err.message); }
+  }
+  tagging = false;
+  console.log(`[ai] tagged ${tagCache.size} articles so far`);
 }
 
 let digestCache = { at: 0, text: null };
@@ -144,10 +143,10 @@ export async function digest(articles, alerts) {
   if (digestCache.text && Date.now() - digestCache.at < DIGEST_TTL_MS) return digestCache;
   if (digesting) return digestCache.text ? digestCache : null;
 
-  const top = [...articles]
-    .sort((a, b) => (b.ai?.importance || 0) - (a.ai?.importance || 0))
+  // `articles` arrive from the browser already sorted by importance.
+  const top = articles
     .slice(0, 50)
-    .map((a) => `- [${a.topics.join(",")}] (${a.source}) ${a.title} — ${a.ai?.summary || a.summary.slice(0, 160)}`)
+    .map((a) => `- [${(a.topics || []).join(",")}] (${a.source}) ${a.title} — ${String(a.summary || "").slice(0, 160)}`)
     .join("\n");
   const alertLines = alerts.map((a) => `- ${a.title} (${a.detail || ""})`).join("\n");
 

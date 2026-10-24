@@ -1,13 +1,12 @@
-# Free "read it anywhere" mode: every 30 minutes GitHub fetches the news,
-# builds the site and publishes it to GitHub Pages. Free for public repos.
-name: Update news site
+# Publishes the site to GitHub Pages whenever you push a change.
+# The news itself is NOT fetched here — your browser fetches it fresh each time
+# you open or refresh the page.
+name: Publish site
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"   # every 30 minutes (GitHub may run it a few minutes late)
-  workflow_dispatch:          # "Run workflow" button for a manual refresh
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,27 +18,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-publish:
+  publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-        env:
-          # Set these as repository variables (Settings → Secrets and variables → Actions → Variables)
-          LOCATION_NAME: ${{ vars.LOCATION_NAME }}
-          LOCATION_LAT: ${{ vars.LOCATION_LAT }}
-          LOCATION_LON: ${{ vars.LOCATION_LON }}
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: public
       - id: deployment
         uses: actions/deploy-pages@v4

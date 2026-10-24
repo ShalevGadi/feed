@@ -1,17 +1,26 @@
 // Everything you'd want to tweak lives here: location, feeds, keywords, special dates.
 
-export const LOCATION = {
-  name: process.env.LOCATION_NAME || "Tel Aviv",
-  lat: Number(process.env.LOCATION_LAT || 32.0853),
-  lon: Number(process.env.LOCATION_LON || 34.7818),
-  timezone: process.env.TZ_NAME || "Asia/Jerusalem",
+// Default weather location. Click the weather in the page header to change it
+// (saved in your browser).
+export const DEFAULT_LOCATION = {
+  name: "Tel Aviv",
+  lat: 32.0853,
+  lon: 34.7818,
+  timezone: "Asia/Jerusalem",
 };
-
-// How often feeds are re-fetched (minutes).
-export const REFRESH_MINUTES = Number(process.env.REFRESH_MINUTES || 15);
 
 // Drop articles older than this.
 export const MAX_AGE_HOURS = 72;
+
+/**
+ * Browsers can't read most news feeds directly (the sites don't allow it), so
+ * feeds are fetched through a relay ("CORS proxy"):
+ *  - On your own computer (npm start) the local server relays — nothing to set up.
+ *  - Online, set PROXY_URL to your own free Cloudflare Worker (see README) for
+ *    reliable loading. If empty, free public relays are used; they work but can
+ *    be slow or rate-limited.
+ */
+export const PROXY_URL = "";
 
 /**
  * Topics, in display order. Each topic has:

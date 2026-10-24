@@ -9,10 +9,12 @@
 <body>
   <header class="top">
     <div class="brand">📰 <span>My News</span></div>
-    <div id="weather" class="weather"></div>
+    <button id="weather" class="weather" title="Change weather city">📍</button>
     <input id="search" type="search" placeholder="Search headlines…" autocomplete="off" />
     <button id="refresh" title="Refresh now">↻</button>
   </header>
+
+  <div id="status" class="status" hidden></div>
 
   <section class="alerts-wrap">
     <h2>Alerts</h2>
@@ -37,8 +39,14 @@
   </div>
 
   <main id="feed" class="feed"></main>
-  <footer class="muted" id="updated"></footer>
+  <footer class="muted">
+    <div id="updated"></div>
+    <details id="sources" class="sources" hidden>
+      <summary id="sources-summary"></summary>
+      <ul id="sources-list"></ul>
+    </details>
+  </footer>
 
-  <script src="app.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
