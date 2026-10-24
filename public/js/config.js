@@ -23,7 +23,9 @@ export const MAX_AGE_HOURS = 72;
 export const PROXY_URL = "https://news-relay.shalevgadi.workers.dev";
 
 /**
- * Topics, in display order. Each topic has:
+ * Topics, in display order. (Adding a feed from a new website? Also add the
+ * site to ALLOWED_HOSTS in relay/worker.js and re-paste it into Cloudflare.)
+ * Each topic has:
  *  - feeds:    RSS/Atom URLs that belong to the topic outright
  *  - keywords: extra matching — articles from ANY feed whose title/summary hits
  *              one of these also show up here (e.g. a BBC story about a drone strike → War)
