@@ -29,8 +29,16 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { headers });
     if (request.method !== "GET") return new Response("forbidden", { status: 403, headers });
 
-    const raw = new URL(request.url).searchParams.get("url");
-    if (!raw) return new Response("relay is running — add ?url=<feed address>", { headers });
+    // The site address comes encoded in the path (/r/<base64>), because some
+    // internet filters block requests that contain a plain "?url=https://…".
+    const reqUrl = new URL(request.url);
+    const encoded = reqUrl.pathname.match(/^\/r\/([A-Za-z0-9_-]+)/)?.[1];
+    let raw = reqUrl.searchParams.get("url");
+    if (encoded) {
+      try { raw = decodeURIComponent(escape(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")))); }
+      catch { return new Response("bad address", { status: 400, headers }); }
+    }
+    if (!raw) return new Response("relay is running", { headers });
     let target;
     try { target = new URL(raw); } catch { return new Response("bad url", { status: 400, headers }); }
     if (!/^https?:$/.test(target.protocol) || !ALLOWED_HOSTS.includes(target.hostname)) {

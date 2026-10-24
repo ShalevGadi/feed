@@ -12,7 +12,11 @@ const PUBLIC_RELAYS = [
   { name: "public relay 1", url: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
   { name: "public relay 2", url: (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}` },
 ];
-const OWN_RELAY = PROXY_URL && { name: "your relay", url: (u) => `${PROXY_URL.replace(/\/$/, "")}/?url=${encodeURIComponent(u)}` };
+// The address is sent encoded (base64), because some internet filters block
+// requests that contain a plain "?url=https://…".
+export const encodeForRelay = (u) =>
+  btoa(unescape(encodeURIComponent(u))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const OWN_RELAY = PROXY_URL && { name: "your relay", url: (u) => `${PROXY_URL.replace(/\/$/, "")}/r/${encodeForRelay(u)}` };
 
 // Set by checkOwnRelay(): if your relay is broken, skip it instead of waiting on it for every feed.
 let ownRelayOk = true;

@@ -27,9 +27,11 @@
   </main>
   <script type="module">
     import { PROXY_URL } from "./js/config.js";
-    const relay = (u) => `${PROXY_URL.replace(/\/$/, "")}/?url=${encodeURIComponent(u)}`;
+    import { encodeForRelay } from "./js/feeds.js";
+    const relay = (u) => `${PROXY_URL.replace(/\/$/, "")}/r/${encodeForRelay(u)}`;
     const TESTS = [
       ["Your internet (weather, direct)", "https://api.open-meteo.com/v1/forecast?latitude=32&longitude=34.8&current=temperature_2m"],
+      ["Your relay (just checking it's up)", `${PROXY_URL.replace(/\/$/, "")}/`],
       ["Your relay → Hebcal", relay("https://www.hebcal.com/hebcal?v=1&cfg=json&maj=on&year=now&month=1")],
       ["Your relay → BBC", relay("https://feeds.bbci.co.uk/news/world/rss.xml")],
       ["Your relay → Times of Israel", relay("https://www.timesofisrael.com/feed/")],
