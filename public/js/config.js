@@ -20,7 +20,7 @@ export const MAX_AGE_HOURS = 72;
  *    reliable loading. If empty, free public relays are used; they work but can
  *    be slow or rate-limited.
  */
-export const PROXY_URL = "";
+export const PROXY_URL = "https://news-relay.shalevgadi.workers.dev";
 
 /**
  * Topics, in display order. Each topic has:

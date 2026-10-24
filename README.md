@@ -49,6 +49,8 @@ Cloudflare Workers is free (100,000 requests a day, no credit card).
 3. Click **Edit code**, replace everything with the contents of `relay/worker.js`, then click **Deploy**.
 4. Copy the worker's address (like `https://news-relay.<you>.workers.dev`) into `PROXY_URL` in `public/js/config.js`, and push the change.
 
+This site already uses its own relay: `https://news-relay.shalevgadi.workers.dev`. The public relays are kept as a backup.
+
 ## Customize
 
 Everything lives in `public/js/config.js`:

@@ -15,8 +15,10 @@ const PUBLIC_RELAYS = [
 
 function relayUrls(url) {
   if (localRelay) return [`proxy?url=${encodeURIComponent(url)}`];
-  if (PROXY_URL) return [`${PROXY_URL.replace(/\/$/, "")}/?url=${encodeURIComponent(url)}`];
-  return PUBLIC_RELAYS.map((f) => f(url));
+  const publicRelays = PUBLIC_RELAYS.map((f) => f(url));
+  // Your own relay first; the public ones are only a backup if it's slow or down.
+  if (PROXY_URL) return [`${PROXY_URL.replace(/\/$/, "")}/?url=${encodeURIComponent(url)}`, ...publicRelays];
+  return publicRelays;
 }
 
 async function fetchText(url, signal) {
