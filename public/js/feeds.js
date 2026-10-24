@@ -19,18 +19,32 @@ function relayUrls(url) {
   return PUBLIC_RELAYS.map((f) => f(url));
 }
 
-export async function fetchViaRelay(url, { timeoutMs = 15000 } = {}) {
-  let lastError;
-  for (const u of relayUrls(url)) {
-    try {
-      const res = await fetch(u, { signal: AbortSignal.timeout(timeoutMs) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.text();
-    } catch (err) {
-      lastError = err;
-    }
+async function fetchText(url, signal) {
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const body = await res.text();
+  // Relays sometimes answer 200 with an error page; a real feed or JSON starts with < { or [.
+  if (!/^\s*[<{[]/.test(body)) throw new Error("relay returned an error");
+  return body;
+}
+
+/**
+ * Fetch through the relay. With public relays, all are asked at once and the
+ * first good answer wins — much faster than trying them one by one.
+ */
+export async function fetchViaRelay(url, { timeoutMs = 10000 } = {}) {
+  const urls = relayUrls(url);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new DOMException("timed out", "TimeoutError")), timeoutMs);
+  try {
+    if (urls.length === 1) return await fetchText(urls[0], controller.signal);
+    return await Promise.any(urls.map((u) => fetchText(u, controller.signal)));
+  } catch (err) {
+    throw err instanceof AggregateError ? err.errors.find((e) => e.name !== "AbortError") || err.errors[0] : err;
+  } finally {
+    clearTimeout(timer);
+    controller.abort(); // cancel the slower relay
   }
-  throw lastError;
 }
 
 export function normalizeText(s) {
@@ -113,7 +127,7 @@ async function fetchFeed(url) {
     feedStatus.set(url, { ok: true, count: feed.items.length });
     return feed.items.map((item) => ({ ...item, source, feed: url }));
   } catch (err) {
-    feedStatus.set(url, { ok: false, error: err.name === "TimeoutError" ? "timed out" : err.message });
+    feedStatus.set(url, { ok: false, error: err?.name === "TimeoutError" || err?.name === "AbortError" ? "timed out" : err?.message || "failed" });
     return [];
   }
 }
@@ -170,21 +184,26 @@ export function buildArticles(rawItems) {
     .sort((a, b) => b.published.localeCompare(a.published));
 }
 
+// Stop starting new feeds after this long; anything still pending is skipped.
+const DEADLINE_MS = 15000;
+
 /**
- * Fetch all feeds, a few at a time. `onProgress(articles, done, total)` is
+ * Fetch all feeds, several at a time. `onProgress(articles, done, total)` is
  * called as feeds arrive so the page fills in progressively.
  */
 export async function fetchAllArticles(onProgress) {
   const urls = [...new Set(TOPICS.flatMap((t) => t.feeds))];
   const raw = [];
+  const deadline = Date.now() + DEADLINE_MS;
   let done = 0, next = 0;
   async function worker() {
     while (next < urls.length) {
       const url = urls[next++];
-      raw.push(...(await fetchFeed(url)));
+      if (Date.now() > deadline) feedStatus.set(url, { ok: false, error: "skipped (page was taking too long)" });
+      else raw.push(...(await fetchFeed(url)));
       onProgress?.(raw, ++done, urls.length);
     }
   }
-  await Promise.all(Array.from({ length: 6 }, worker));
+  await Promise.all(Array.from({ length: 10 }, worker));
   return buildArticles(raw);
 }

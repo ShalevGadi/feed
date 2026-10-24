@@ -211,13 +211,14 @@ async function update() {
 
   let last = 0;
   const articles = await fetchAllArticles((raw, done, total) => {
-    renderStatus(`Loading news… ${done}/${total} sources`);
+    renderStatus(`Loading news… ${done}/${total} sources (you can browse while it loads)`);
     // Fill the page in as feeds arrive, at most every 700 ms.
     if (Date.now() - last > 700 || done === total) {
       last = Date.now();
       state.data.articles = keepTags(buildArticles(raw));
       renderTopics();
       renderFeed();
+      renderSources();
     }
   });
   state.data.articles = keepTags(articles);
