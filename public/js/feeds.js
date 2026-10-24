@@ -70,16 +70,19 @@ export async function fetchViaRelay(url, { timeoutMs = 12000 } = {}) {
 export async function checkOwnRelay() {
   ownRelayOk = true;
   if (!OWN_RELAY || localRelay) return null;
+  // Try two different sites, so one slow news site doesn't make the relay look broken.
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), 10000);
+  const sites = [TOPICS[0].feeds[0], TOPICS[1].feeds[0]];
   try {
-    await fetchText(OWN_RELAY, TOPICS[0].feeds[0], controller.signal);
+    await Promise.any(sites.map((site) => fetchText(OWN_RELAY, site, controller.signal)));
     return null;
   } catch (err) {
     ownRelayOk = false;
-    return err.message;
+    return err.errors ? err.errors[0].message : err.message;
   } finally {
     clearTimeout(timer);
+    controller.abort();
   }
 }
 
