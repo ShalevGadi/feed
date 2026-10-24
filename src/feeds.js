@@ -8,7 +8,7 @@ const parser = new Parser({
   customFields: { item: [["media:thumbnail", "mediaThumbnail"], ["media:content", "mediaContent"]] },
 });
 
-// Per-feed status, exposed at /api/health so you can spot dead feeds.
+// Per-feed status, exposed in health.json so you can spot dead feeds.
 export const feedStatus = new Map();
 
 export function normalizeText(s) {
