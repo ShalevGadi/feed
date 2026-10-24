@@ -1,7 +1,7 @@
 // The whole site runs in your browser: every time you open or refresh the page,
 // it fetches the latest news, weather and holidays.
 import { TOPICS } from "./config.js";
-import { fetchAllArticles, buildArticles, feedStatus, useLocalRelay } from "./feeds.js";
+import { fetchAllArticles, buildArticles, feedStatus, useLocalRelay, checkOwnRelay } from "./feeds.js";
 import { weather, holidays, specialDays, headlineAlerts } from "./alerts.js";
 import { getLocation, setLocationByName } from "./location.js";
 
@@ -156,6 +156,12 @@ function renderSources() {
     : "<li>All sources loaded.</li>";
 }
 
+function renderRelayProblem() {
+  const el = $("#relay-problem");
+  el.hidden = !state.relayProblem;
+  if (state.relayProblem) el.textContent = `⚠️ Your Cloudflare relay isn't working (${state.relayProblem}). Using the slower public relays instead.`;
+}
+
 function renderStatus(msg) {
   $("#status").textContent = msg || "";
   $("#status").hidden = !msg;
@@ -208,6 +214,10 @@ async function update() {
   $("#refresh").disabled = true;
   feedStatus.clear();
   const extras = loadWeatherAndHolidays();
+
+  renderStatus("Checking your relay…");
+  state.relayProblem = await checkOwnRelay();
+  renderRelayProblem();
 
   let last = 0;
   const articles = await fetchAllArticles((raw, done, total) => {

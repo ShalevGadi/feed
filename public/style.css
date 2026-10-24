@@ -104,6 +104,7 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: v
 
 footer { padding-bottom: 24px; font-size: 12px; text-align: center; }
 .status { margin: 10px 16px 0; padding: 8px 12px; border-radius: 8px; background: var(--info-bg); font-size: 13px; }
+.status.warn { background: var(--warn-bg); }
 .sources { margin-top: 8px; text-align: start; display: inline-block; max-width: 100%; }
 .sources summary { cursor: pointer; }
 .sources ul { padding-inline-start: 18px; overflow-wrap: anywhere; }

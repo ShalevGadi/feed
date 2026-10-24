@@ -9,50 +9,77 @@ let localRelay = false;
 export function useLocalRelay(on) { localRelay = on; }
 
 const PUBLIC_RELAYS = [
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
+  { name: "public relay 1", url: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+  { name: "public relay 2", url: (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}` },
 ];
+const OWN_RELAY = PROXY_URL && { name: "your relay", url: (u) => `${PROXY_URL.replace(/\/$/, "")}/?url=${encodeURIComponent(u)}` };
 
-function relayUrls(url) {
-  if (localRelay) return [`proxy?url=${encodeURIComponent(url)}`];
-  const publicRelays = PUBLIC_RELAYS.map((f) => f(url));
+// Set by checkOwnRelay(): if your relay is broken, skip it instead of waiting on it for every feed.
+let ownRelayOk = true;
+
+function relays() {
+  if (localRelay) return [{ name: "local server", url: (u) => `proxy?url=${encodeURIComponent(u)}` }];
   // Your own relay first; the public ones are only a backup if it's slow or down.
-  if (PROXY_URL) return [`${PROXY_URL.replace(/\/$/, "")}/?url=${encodeURIComponent(url)}`, ...publicRelays];
-  return publicRelays;
+  return OWN_RELAY && ownRelayOk ? [OWN_RELAY, ...PUBLIC_RELAYS] : PUBLIC_RELAYS;
 }
 
-async function fetchText(url, signal) {
-  const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const body = await res.text();
-  // Relays sometimes answer 200 with an error page; a real feed or JSON starts with < { or [.
-  if (!/^\s*[<{[]/.test(body)) throw new Error("relay returned an error");
-  return body;
+async function fetchText(relay, url, signal) {
+  const started = Date.now();
+  try {
+    const res = await fetch(relay.url(url), { signal });
+    const body = await res.text();
+    if (!res.ok) throw new Error(`HTTP ${res.status}${body ? ` "${body.trim().slice(0, 40)}"` : ""}`);
+    // Relays sometimes answer 200 with an error page; a real feed or JSON starts with < { or [.
+    if (!/^\s*[<{[]/.test(body)) throw new Error(`answered "${body.trim().slice(0, 40)}"`);
+    return body;
+  } catch (err) {
+    const why = signal.aborted ? `no answer in ${Math.round((Date.now() - started) / 1000)}s`
+      : err instanceof TypeError ? "couldn't connect (blocked or offline)"
+      : err.message;
+    throw new Error(`${relay.name}: ${why}`);
+  }
 }
 
 /**
- * Fetch through the relay. With public relays, a backup relay is asked when
- * the first one is slow, and the first good answer wins.
+ * Fetch through the relays. A backup relay is asked when the first one is
+ * slow or fails, and the first good answer wins.
  */
 export async function fetchViaRelay(url, { timeoutMs = 12000 } = {}) {
-  const urls = relayUrls(url);
+  const list = relays();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new DOMException("timed out", "TimeoutError")), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    if (urls.length === 1) return await fetchText(urls[0], controller.signal);
-    // Ask the first relay; only if it's slow (or fails) also ask the backup.
-    // Asking every relay at once overloads them and they start refusing.
+    if (list.length === 1) return await fetchText(list[0], url, controller.signal);
+    // Asking every relay at once overloads the public ones and they start refusing.
     let startBackup;
     const backupGate = new Promise((r) => { startBackup = r; setTimeout(r, 4000); });
-    const first = fetchText(urls[0], controller.signal);
+    const first = fetchText(list[0], url, controller.signal);
     first.catch(() => startBackup());
-    const backups = urls.slice(1).map((u) => backupGate.then(() => fetchText(u, controller.signal)));
+    const backups = list.slice(1).map((r) => backupGate.then(() => fetchText(r, url, controller.signal)));
     return await Promise.any([first, ...backups]);
   } catch (err) {
-    throw err instanceof AggregateError ? err.errors.find((e) => e.name !== "AbortError") || err.errors[0] : err;
+    // Show what every relay said, so problems are easy to diagnose.
+    throw err instanceof AggregateError ? new Error(err.errors.map((e) => e.message).join(" · ")) : err;
   } finally {
     clearTimeout(timer);
     controller.abort(); // cancel the slower relay
+  }
+}
+
+/** Quick check of your own relay before loading everything. Returns a problem description, or null. */
+export async function checkOwnRelay() {
+  ownRelayOk = true;
+  if (!OWN_RELAY || localRelay) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    await fetchText(OWN_RELAY, TOPICS[0].feeds[0], controller.signal);
+    return null;
+  } catch (err) {
+    ownRelayOk = false;
+    return err.message;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -136,7 +163,7 @@ async function fetchFeed(url) {
     feedStatus.set(url, { ok: true, count: feed.items.length });
     return feed.items.map((item) => ({ ...item, source, feed: url }));
   } catch (err) {
-    feedStatus.set(url, { ok: false, error: err?.name === "TimeoutError" || err?.name === "AbortError" ? "timed out" : err?.message || "failed" });
+    feedStatus.set(url, { ok: false, error: err?.message || "failed" });
     return [];
   }
 }
@@ -213,7 +240,7 @@ export async function fetchAllArticles(onProgress) {
       onProgress?.(raw, ++done, urls.length);
     }
   }
-  const parallel = localRelay || PROXY_URL ? 10 : 4; // public relays throttle heavy use
+  const parallel = localRelay || (OWN_RELAY && ownRelayOk) ? 10 : 4; // public relays throttle heavy use
   await Promise.all(Array.from({ length: parallel }, worker));
   return buildArticles(raw);
 }
