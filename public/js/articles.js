@@ -1,0 +1,79 @@
+// Shared by the server (which builds the article list) and the page (search, alerts).
+// No browser- or Node-only code in here.
+import { TOPICS, MAX_AGE_HOURS } from "./config.js";
+
+export function normalizeText(s) {
+  return (" " + String(s || "").toLowerCase().replace(/[.,:;!?()[\]“”‘’«»|/\\]/g, " ") + " ")
+    .replace(/\s+/g, " ");
+}
+
+// English keywords match whole words (plus plural/verb endings) so "war" doesn't
+// hit "ransomware". Hebrew attaches prefixes (ב, ה, ו…) so it matches as a substring.
+const kwCache = new Map();
+function keywordRegex(k) {
+  if (!kwCache.has(k)) {
+    const escaped = k.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    kwCache.set(k, /[a-z]/i.test(k)
+      ? new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?:s|es|ed|ing)?(?![\\p{L}\\p{N}])`, "u")
+      : new RegExp(escaped, "u"));
+  }
+  return kwCache.get(k);
+}
+
+export function matchesAny(text, keywords) {
+  return keywords.some((k) => keywordRegex(k).test(text));
+}
+
+function hash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return (h >>> 0).toString(36);
+}
+
+/**
+ * Normalize, tag with topics and de-duplicate raw feed items.
+ * Each raw item: { title, link, date, summary, image, source, feedUrl }.
+ */
+export function buildArticles(rawItems) {
+  const feedToTopics = new Map();
+  for (const t of TOPICS) for (const f of t.feeds) {
+    if (!feedToTopics.has(f.url)) feedToTopics.set(f.url, new Set());
+    feedToTopics.get(f.url).add(t.id);
+  }
+  const cutoff = Date.now() - MAX_AGE_HOURS * 3600 * 1000;
+  const byKey = new Map();
+
+  for (const item of rawItems) {
+    if (!item.title) continue;
+    let published = new Date(item.date || Date.now());
+    if (isNaN(published)) published = new Date();
+    if (published.getTime() < cutoff) continue;
+    if (published.getTime() > Date.now()) published = new Date();
+
+    // Same story in several feeds → keep one, merge topics.
+    const key = (item.link || "").replace(/[?#].*$/, "") || item.title.toLowerCase();
+    const text = normalizeText(`${item.title} ${item.summary}`);
+    const topics = new Set(feedToTopics.get(item.feedUrl));
+    for (const t of TOPICS) if (t.keywords.length && matchesAny(text, t.keywords)) topics.add(t.id);
+
+    const existing = byKey.get(key);
+    if (existing) {
+      topics.forEach((t) => existing.topics.add(t));
+      continue;
+    }
+    byKey.set(key, {
+      id: hash(key),
+      title: item.title,
+      summary: item.summary,
+      link: item.link,
+      source: item.source,
+      image: item.image,
+      published: published.toISOString(),
+      topics,
+    });
+  }
+
+  return [...byKey.values()]
+    .map((a) => ({ ...a, topics: [...a.topics] }))
+    .sort((a, b) => b.published.localeCompare(a.published));
+}

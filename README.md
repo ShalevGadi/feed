@@ -1,9 +1,7 @@
 # My News: a personal news feed
 
 A free, personal news dashboard with an **alerts bar** at the top and **topic feeds** below.
-It loads fresh news **every time you open or refresh the page**. Nothing runs in the background.
-
-**Live site:** https://shalevgadi.github.io/feed/
+It loads fresh news when you open the page, and checks again every 5 minutes while it's open.
 
 ![screenshot](docs/screenshot.png)
 
@@ -26,30 +24,24 @@ Click the weather in the header to change your city. The choice is saved in your
 
 ## 100% free
 
-No payments, ever. RSS feeds, Open-Meteo, Hebcal and GitHub Pages are all free. Nothing needs an API key.
+No payments, ever. RSS feeds, Bing News RSS, Open-Meteo, Hebcal and Vercel's free (Hobby) plan cost nothing.
 
 ## How it works
 
-The whole app runs in your browser (`public/`):
-1. On open or refresh, it shows the news from your last visit instantly, then fetches every feed fresh.
-2. The page fills in as feeds arrive, usually within 5–20 seconds.
-3. Weather and holidays come straight from Open-Meteo and Hebcal.
+- **Backend** (`api/feed.js` → `src/news.js`): fetches every feed on the server with a plain `fetch`, parses it, and returns one article list at `/api/feed`.
+  - Publishers without a good feed use a **Bing News RSS search** limited to their site, made with `bing()` in the config. An article is kept only if its link really is on that publisher's site.
+  - Results are cached for 2 minutes, so refreshing is instant.
+- **Page** (`public/`): calls `/api/feed` when opened, then every 5 minutes while visible. Weather comes from Open-Meteo and holidays from Hebcal, both called directly.
+- The **Sources** line at the bottom shows how many feeds loaded. Tap it to see which ones failed and why.
 
-**Why a relay?** Most news sites don't let other websites read their feeds directly from a browser (a rule called CORS). So the feeds pass through a relay:
-- **On GitHub Pages:** free public relays by default, with nothing to set up. They can be slow or occasionally fail. For reliable loading, set up your own free relay (below).
-- **On your own computer (`npm start`):** the local server is the relay.
+## Put it online (free, Vercel)
 
-The **Sources** line at the bottom of the page shows how many feeds loaded. Open it to see which ones failed.
+1. Go to https://vercel.com/signup and choose **Continue with GitHub** (Hobby plan, free, no card).
+2. Click **Add New… → Project**, pick the `feed` repository, then click **Import**.
+3. Leave the settings as they are and click **Deploy**.
+4. After about a minute you get your address, like `https://feed-xxxx.vercel.app`.
 
-## Optional: your own free relay (more reliable)
-
-Cloudflare Workers is free (100,000 requests a day, no credit card).
-1. Sign up at https://dash.cloudflare.com/sign-up (free).
-2. Go to **Workers & Pages → Create → Create Worker**, name it (e.g. `news-relay`) and click **Deploy**.
-3. Click **Edit code**, replace everything with the contents of `relay/worker.js`, then click **Deploy**.
-4. Copy the worker's address (like `https://news-relay.<you>.workers.dev`) into `PROXY_URL` in `public/js/config.js`, and push the change.
-
-This site already uses its own relay: `https://news-relay.shalevgadi.workers.dev`. The public relays are kept as a backup.
+Every push to `main` redeploys automatically.
 
 ## Customize
 
@@ -57,9 +49,9 @@ Everything lives in `public/js/config.js`:
 - `TOPICS`: add or remove feeds and keywords per topic
 - `HEADLINE_ALERTS`: keywords that promote a headline into the alerts bar
 - `SPECIAL_DAYS`: your own dates (birthdays, elections, launches…)
-- `WEATHER_THRESHOLDS`, `DEFAULT_LOCATION`, `PROXY_URL`
+- `WEATHER_THRESHOLDS`, `DEFAULT_LOCATION`
 
-Push a change to `main` and GitHub republishes the site within about a minute.
+Add a source with `feed("Name", "site.com", "https://site.com/rss")`, or for sites without a feed, `bing("Name", "site.com", "site:site.com your search words")`.
 
 ## Run it on your own computer (optional, adds free local AI)
 
@@ -92,4 +84,4 @@ OLLAMA_MODEL=gemma3:4b
 | 16 GB RAM or an Apple M-series Mac | **`gemma3:4b`** (recommended) |
 | 32 GB RAM or a 12 GB+ GPU | `gemma3:12b` |
 
-The AI only works with the local version. GitHub Pages can't run a model.
+The AI only works with the local version. Vercel's free plan can't run a model.

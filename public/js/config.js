@@ -13,20 +13,20 @@ export const DEFAULT_LOCATION = {
 export const MAX_AGE_HOURS = 72;
 
 /**
- * Browsers can't read most news feeds directly (the sites don't allow it), so
- * feeds are fetched through a relay ("CORS proxy"):
- *  - On your own computer (npm start) the local server relays — nothing to set up.
- *  - Online, set PROXY_URL to your own free Cloudflare Worker (see README) for
- *    reliable loading. If empty, free public relays are used; they work but can
- *    be slow or rate-limited.
+ * A feed entry, like the example: which publisher, which website (domain), and
+ * the feed address. bing() is for publishers without a good feed of their own:
+ * it uses a Bing News RSS search limited to that site, and only keeps articles
+ * whose link really is on that site.
  */
-export const PROXY_URL = "https://news-relay.shalevgadi.workers.dev";
+const feed = (source, domain, url) => ({ source, domain, url });
+const bing = (source, domain, query, mkt = "en-US") => ({
+  source, domain, bing: true,
+  url: `https://www.bing.com/news/search?q=${encodeURIComponent(query)}&format=rss&mkt=${mkt}`,
+});
 
 /**
- * Topics, in display order. (Adding a feed from a new website? Also add the
- * site to ALLOWED_HOSTS in relay/worker.js and re-paste it into Cloudflare.)
- * Each topic has:
- *  - feeds:    RSS/Atom URLs that belong to the topic outright
+ * Topics, in display order. Each topic has:
+ *  - feeds:    feed() / bing() entries whose articles belong to the topic outright
  *  - keywords: extra matching — articles from ANY feed whose title/summary hits
  *              one of these also show up here (e.g. a BBC story about a drone strike → War)
  */
@@ -36,11 +36,13 @@ export const TOPICS = [
     label: "World",
     icon: "🌍",
     feeds: [
-      "https://feeds.bbci.co.uk/news/world/rss.xml",
-      "https://www.theguardian.com/world/rss",
-      "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-      "https://www.aljazeera.com/xml/rss/all.xml",
-      "https://feeds.npr.org/1004/rss.xml",
+      bing("Reuters", "reuters.com", "site:reuters.com/world world"),
+      bing("AP News", "apnews.com", "site:apnews.com/article (international OR politics OR conflict)"),
+      feed("BBC News", "bbc.co.uk", "https://feeds.bbci.co.uk/news/world/rss.xml"),
+      feed("The Guardian", "theguardian.com", "https://www.theguardian.com/world/rss"),
+      feed("New York Times", "nytimes.com", "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"),
+      feed("Al Jazeera", "aljazeera.com", "https://www.aljazeera.com/xml/rss/all.xml"),
+      feed("NPR", "npr.org", "https://feeds.npr.org/1004/rss.xml"),
     ],
     keywords: [],
   },
@@ -50,14 +52,16 @@ export const TOPICS = [
     icon: "🇮🇱",
     // Israeli sources only (English + Hebrew)
     feeds: [
-      "https://www.timesofisrael.com/feed/",
-      "https://www.jpost.com/rss/rssfeedsheadlines.aspx",
-      "https://www.israelhayom.com/feed/",
-      "https://www.ynetnews.com/Integration/StoryRss3082.xml",
-      "https://www.ynet.co.il/Integration/StoryRss2.xml",
-      "https://www.maariv.co.il/Rss/RssChadashot",
-      "https://www.globes.co.il/webservice/rss/rssfeeder.asmx/FeederNode?iID=1725",
-      "https://www.inn.co.il/Rss.aspx",
+      bing("Haaretz", "haaretz.co.il", "site:haaretz.co.il", "he-IL"),
+      bing("Kan News", "kan.org.il", "site:kan.org.il חדשות", "he-IL"),
+      feed("Times of Israel", "timesofisrael.com", "https://www.timesofisrael.com/feed/"),
+      feed("Jerusalem Post", "jpost.com", "https://www.jpost.com/rss/rssfeedsheadlines.aspx"),
+      feed("Israel Hayom", "israelhayom.com", "https://www.israelhayom.com/feed/"),
+      feed("Ynet News", "ynetnews.com", "https://www.ynetnews.com/Integration/StoryRss3082.xml"),
+      feed("Ynet", "ynet.co.il", "https://www.ynet.co.il/Integration/StoryRss2.xml"),
+      feed("Maariv", "maariv.co.il", "https://www.maariv.co.il/Rss/RssChadashot"),
+      feed("Globes", "globes.co.il", "https://www.globes.co.il/webservice/rss/rssfeeder.asmx/FeederNode?iID=1725"),
+      feed("Arutz 7", "inn.co.il", "https://www.inn.co.il/Rss.aspx"),
     ],
     keywords: [],
   },
@@ -66,9 +70,10 @@ export const TOPICS = [
     label: "War & Defense",
     icon: "🛡️",
     feeds: [
-      "https://breakingdefense.com/feed/",
-      "https://www.defensenews.com/arc/outboundfeeds/rss/",
-      "https://kyivindependent.com/news-archive/rss/",
+      bing("Reuters", "reuters.com", "site:reuters.com (war OR military OR missile OR ceasefire)"),
+      feed("Breaking Defense", "breakingdefense.com", "https://breakingdefense.com/feed/"),
+      feed("Defense News", "defensenews.com", "https://www.defensenews.com/arc/outboundfeeds/rss/"),
+      feed("Kyiv Independent", "kyivindependent.com", "https://kyivindependent.com/news-archive/rss/"),
     ],
     keywords: [
       "war", "missile", "rocket", "drone strike", "airstrike", "idf", "hamas", "hezbollah",
@@ -81,10 +86,11 @@ export const TOPICS = [
     label: "Middle East",
     icon: "🕌",
     feeds: [
-      "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml",
-      "https://www.theguardian.com/world/middleeast/rss",
-      "https://www.al-monitor.com/rss",
-      "https://www.aljazeera.com/xml/rss/all.xml",
+      bing("Reuters", "reuters.com", "site:reuters.com/world/middle-east"),
+      feed("BBC News", "bbc.co.uk", "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml"),
+      feed("The Guardian", "theguardian.com", "https://www.theguardian.com/world/middleeast/rss"),
+      feed("Al-Monitor", "al-monitor.com", "https://www.al-monitor.com/rss"),
+      feed("Al Jazeera", "aljazeera.com", "https://www.aljazeera.com/xml/rss/all.xml"),
     ],
     keywords: [
       "iran", "syria", "lebanon", "gaza", "west bank", "saudi", "yemen", "iraq", "jordan",
@@ -97,10 +103,10 @@ export const TOPICS = [
     label: "Tech",
     icon: "💻",
     feeds: [
-      "https://www.theverge.com/rss/index.xml",
-      "https://feeds.arstechnica.com/arstechnica/index",
-      "https://techcrunch.com/feed/",
-      "https://www.geektime.co.il/feed/",
+      feed("The Verge", "theverge.com", "https://www.theverge.com/rss/index.xml"),
+      feed("Ars Technica", "arstechnica.com", "https://feeds.arstechnica.com/arstechnica/index"),
+      feed("TechCrunch", "techcrunch.com", "https://techcrunch.com/feed/"),
+      feed("Geektime", "geektime.co.il", "https://www.geektime.co.il/feed/"),
     ],
     keywords: [],
   },
@@ -109,11 +115,11 @@ export const TOPICS = [
     label: "Cyber & Hacking",
     icon: "🔐",
     feeds: [
-      "https://feeds.feedburner.com/TheHackersNews",
-      "https://www.bleepingcomputer.com/feed/",
-      "https://krebsonsecurity.com/feed/",
-      "https://therecord.media/feed",
-      "https://www.darkreading.com/rss.xml",
+      feed("The Hacker News", "thehackernews.com", "https://feeds.feedburner.com/TheHackersNews"),
+      feed("BleepingComputer", "bleepingcomputer.com", "https://www.bleepingcomputer.com/feed/"),
+      feed("KrebsOnSecurity", "krebsonsecurity.com", "https://krebsonsecurity.com/feed/"),
+      feed("The Record", "therecord.media", "https://therecord.media/feed"),
+      feed("Dark Reading", "darkreading.com", "https://www.darkreading.com/rss.xml"),
     ],
     keywords: [
       "ransomware", "zero-day", "0-day", "vulnerability", "cve", "malware", "phishing",
@@ -125,10 +131,10 @@ export const TOPICS = [
     label: "Science",
     icon: "🔬",
     feeds: [
-      "https://www.sciencedaily.com/rss/top/science.xml",
-      "https://www.quantamagazine.org/feed/",
-      "https://www.newscientist.com/feed/home/",
-      "https://www.nasa.gov/news-release/feed/",
+      feed("ScienceDaily", "sciencedaily.com", "https://www.sciencedaily.com/rss/top/science.xml"),
+      feed("Quanta Magazine", "quantamagazine.org", "https://www.quantamagazine.org/feed/"),
+      feed("New Scientist", "newscientist.com", "https://www.newscientist.com/feed/home/"),
+      feed("NASA", "nasa.gov", "https://www.nasa.gov/news-release/feed/"),
     ],
     keywords: [],
   },
@@ -137,10 +143,10 @@ export const TOPICS = [
     label: "Gaming",
     icon: "🎮",
     feeds: [
-      "https://www.pcgamer.com/rss/",
-      "https://www.eurogamer.net/feed",
-      "https://www.polygon.com/rss/index.xml",
-      "https://www.rockpapershotgun.com/feed",
+      feed("PC Gamer", "pcgamer.com", "https://www.pcgamer.com/rss/"),
+      feed("Eurogamer", "eurogamer.net", "https://www.eurogamer.net/feed"),
+      feed("Polygon", "polygon.com", "https://www.polygon.com/rss/index.xml"),
+      feed("Rock Paper Shotgun", "rockpapershotgun.com", "https://www.rockpapershotgun.com/feed"),
     ],
     keywords: [],
   },
@@ -149,11 +155,13 @@ export const TOPICS = [
     label: "AI",
     icon: "🤖",
     feeds: [
-      "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
-      "https://arstechnica.com/ai/feed/",
-      "https://www.technologyreview.com/topic/artificial-intelligence/feed",
-      "https://venturebeat.com/category/ai/feed/",
-      "https://huggingface.co/blog/feed.xml",
+      bing("OpenAI", "openai.com", "site:openai.com/index"),
+      bing("Anthropic", "anthropic.com", "site:anthropic.com/news"),
+      feed("The Verge", "theverge.com", "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"),
+      feed("Ars Technica", "arstechnica.com", "https://arstechnica.com/ai/feed/"),
+      feed("MIT Technology Review", "technologyreview.com", "https://www.technologyreview.com/topic/artificial-intelligence/feed"),
+      feed("VentureBeat", "venturebeat.com", "https://venturebeat.com/category/ai/feed/"),
+      feed("Hugging Face", "huggingface.co", "https://huggingface.co/blog/feed.xml"),
     ],
     keywords: [
       "artificial intelligence", "ai", "llm", "chatgpt", "claude", "gemini", "openai",
@@ -165,9 +173,11 @@ export const TOPICS = [
     label: "XR / VR / AR",
     icon: "🥽",
     feeds: [
-      "https://www.uploadvr.com/rss/",
-      "https://www.roadtovr.com/feed/",
-      "https://mixed-news.com/en/feed/",
+      bing("Meta Newsroom", "about.fb.com", "site:about.fb.com/news (Quest OR VR OR AR OR smart glasses)"),
+      bing("Apple Newsroom", "apple.com", "site:apple.com/newsroom (Vision Pro OR visionOS)"),
+      feed("UploadVR", "uploadvr.com", "https://www.uploadvr.com/rss/"),
+      feed("Road to VR", "roadtovr.com", "https://www.roadtovr.com/feed/"),
+      feed("Mixed-News", "mixed-news.com", "https://mixed-news.com/en/feed/"),
     ],
     keywords: [
       "virtual reality", "augmented reality", "mixed reality", "vision pro", "meta quest",
@@ -179,8 +189,8 @@ export const TOPICS = [
     label: "AI Use Cases",
     icon: "🛠️",
     feeds: [
-      "https://aws.amazon.com/blogs/machine-learning/feed/",
-      "https://aibusiness.com/rss.xml",
+      feed("AWS Machine Learning Blog", "amazon.com", "https://aws.amazon.com/blogs/machine-learning/feed/"),
+      feed("AI Business", "aibusiness.com", "https://aibusiness.com/rss.xml"),
     ],
     // Without AI, use cases are found by keyword. With local AI on (Ollama),
     // the model tags them much more accurately (see ai.js).

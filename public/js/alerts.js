@@ -1,5 +1,5 @@
 import { HEADLINE_ALERTS, SPECIAL_DAYS, LOOKAHEAD_DAYS, WEATHER_THRESHOLDS } from "./config.js";
-import { matchesAny, fetchViaRelay } from "./feeds.js";
+import { matchesAny } from "./articles.js";
 import { getLocation } from "./location.js";
 
 const DAY = 24 * 3600 * 1000;
@@ -20,15 +20,11 @@ function whenLabel(n) {
   return `In ${n} days`;
 }
 
-// Open-Meteo and Hebcal allow browsers to call them directly; the relay is only a fallback.
+// Open-Meteo and Hebcal allow web pages to call them directly.
 async function getJson(url) {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return await res.json();
-  } catch {
-    return JSON.parse(await fetchViaRelay(url));
-  }
+  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
 }
 
 // ---------- Weather (Open-Meteo, free, no key) ----------
@@ -171,22 +167,4 @@ export function headlineAlerts(articles) {
     }
   }
   return out;
-}
-
-/** Everything for the Alerts bar. Each source fails independently. */
-export async function buildAlerts(articles) {
-  const [wx, hol] = await Promise.allSettled([weather(), holidays()]);
-  const alerts = [
-    ...(wx.status === "fulfilled" ? wx.value.alerts : []),
-    ...(hol.status === "fulfilled" ? hol.value : []),
-    ...specialDays(),
-    ...headlineAlerts(articles),
-  ];
-  const rank = { danger: 0, warn: 1, info: 2 };
-  alerts.sort((a, b) => rank[a.severity] - rank[b.severity]);
-  return {
-    alerts,
-    weather: wx.status === "fulfilled" ? { current: wx.value.current, daily: wx.value.daily } : null,
-    errors: [wx, hol].filter((r) => r.status === "rejected").map((r) => r.reason.message),
-  };
 }

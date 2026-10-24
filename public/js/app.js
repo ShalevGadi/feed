@@ -1,7 +1,8 @@
-// The whole site runs in your browser: every time you open or refresh the page,
-// it fetches the latest news, weather and holidays.
+// The page asks its own backend (/api/feed) for the news when it opens, and
+// again every 5 minutes while you're looking at it. Weather and holidays come
+// straight from Open-Meteo and Hebcal.
 import { TOPICS } from "./config.js";
-import { fetchAllArticles, buildArticles, feedStatus, useLocalRelay, checkOwnRelay } from "./feeds.js";
+import { normalizeText } from "./articles.js";
 import { weather, holidays, specialDays, headlineAlerts } from "./alerts.js";
 import { getLocation, setLocationByName } from "./location.js";
 
@@ -18,6 +19,7 @@ const state = {
   q: "",
   ai: false, // true only when served by the local server with Ollama running
   loading: false,
+  sources: [],
   data: { articles: [], alerts: [], weather: null, digest: null, updatedAt: null },
   wx: null,
   holidays: [],
@@ -146,20 +148,16 @@ function renderDigest() {
 }
 
 function renderSources() {
-  const all = [...feedStatus.entries()];
+  const all = state.sources;
   if (!all.length) return;
-  const bad = all.filter(([, s]) => !s.ok);
+  const bad = all.filter((s) => !s.ok);
+  const empty = all.filter((s) => s.ok && !s.count);
   $("#sources").hidden = false;
   $("#sources-summary").textContent = `Sources: ${all.length - bad.length} of ${all.length} loaded`;
-  $("#sources-list").innerHTML = bad.length
-    ? bad.map(([url, s]) => `<li><code>${esc(url)}</code> — ${esc(s.error)}</li>`).join("")
+  $("#sources-list").innerHTML = bad.length || empty.length
+    ? [...bad.map((s) => `<li><b>${esc(s.source)}</b> — ${esc(s.error)}<br><code>${esc(s.url)}</code></li>`),
+       ...empty.map((s) => `<li><b>${esc(s.source)}</b> — loaded, but no matching stories right now</li>`)].join("")
     : "<li>All sources loaded.</li>";
-}
-
-function renderRelayProblem() {
-  const el = $("#relay-problem");
-  el.hidden = !state.relayProblem;
-  if (state.relayProblem) el.textContent = `⚠️ Your Cloudflare relay isn't working (${state.relayProblem}). Using the slower public relays instead.`;
 }
 
 function renderStatus(msg) {
@@ -208,37 +206,31 @@ function saveSnapshot() {
   store.set("snapshot", { ...state.data, articles });
 }
 
+let lastUpdate = 0;
+
 async function update() {
   if (state.loading) return;
   state.loading = true;
+  lastUpdate = Date.now();
   $("#refresh").disabled = true;
-  feedStatus.clear();
+  renderStatus("Loading the latest news…");
   const extras = loadWeatherAndHolidays();
-
-  renderStatus("Checking your relay…");
-  state.relayProblem = await checkOwnRelay();
-  renderRelayProblem();
-
-  let last = 0;
-  const articles = await fetchAllArticles((raw, done, total) => {
-    renderStatus(`Loading news… ${done}/${total} sources (you can browse while it loads)`);
-    // Fill the page in as feeds arrive, at most every 700 ms.
-    if (Date.now() - last > 700 || done === total) {
-      last = Date.now();
-      state.data.articles = keepTags(buildArticles(raw));
-      renderTopics();
-      renderFeed();
-      renderSources();
-    }
-  });
-  state.data.articles = keepTags(articles);
-  state.data.updatedAt = new Date().toISOString();
+  try {
+    const res = await fetch("api/feed", { cache: "no-store" });
+    if (!res.ok) throw new Error(`server answered ${res.status}`);
+    const data = await res.json();
+    // `text` is only used for searching and alert keywords, so it's rebuilt here.
+    state.data.articles = keepTags(data.articles.map((a) => ({ ...a, text: normalizeText(`${a.title} ${a.summary}`) })));
+    state.data.updatedAt = data.updatedAt;
+    state.sources = data.sources;
+    renderStatus("");
+  } catch (err) {
+    renderStatus(`Couldn't load new stories (${err.message}). Showing the last ones.`);
+  }
   await extras;
   state.data.alerts = buildAlertList();
-
   state.loading = false;
   $("#refresh").disabled = false;
-  renderStatus("");
   render();
   saveSnapshot();
   if (state.ai) runAI();
@@ -348,23 +340,25 @@ $("#weather").addEventListener("click", async () => {
 
 // ---------- Start ----------
 
+const FIVE_MIN = 5 * 60 * 1000;
+
 async function start() {
-  // Served by the local server? Then it relays feeds (and maybe runs local AI).
+  // Served by the local server (npm start)? Then local AI may be available.
   const info = await fetch("api/info", { signal: AbortSignal.timeout(3000) })
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null);
-  useLocalRelay(Boolean(info?.relay));
   state.ai = Boolean(info?.ai);
 
   const saved = store.get("snapshot", null);
-  if (saved?.articles?.length) {
-    state.data = { ...state.data, ...saved };
-    render();
-    renderStatus(`Showing news from ${ago(saved.updatedAt)} while the latest loads…`);
-  } else {
-    render();
-  }
+  if (saved?.articles?.length) state.data = { ...state.data, ...saved };
+  render();
   await update();
+
+  // Check again every 5 minutes while the page is visible, and when you come back to it.
+  setInterval(() => { if (!document.hidden) update(); }, FIVE_MIN);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && Date.now() - lastUpdate > FIVE_MIN) update();
+  });
 }
 
 start();
