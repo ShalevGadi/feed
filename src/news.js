@@ -2,7 +2,7 @@
 // here, so a plain fetch works), parses it, and returns one list of articles.
 import Parser from "rss-parser";
 import { TOPICS } from "../public/js/config.js";
-import { buildArticles } from "../public/js/articles.js";
+import { buildArticles, normalizeText, matchesAny } from "../public/js/articles.js";
 
 const parser = new Parser({
   customFields: {
@@ -67,11 +67,15 @@ async function fetchFeed(f) {
     const link = f.bing ? unwrapBingLink(item.link) : item.link;
     // Bing searches can return other sites; only keep the publisher's own articles.
     if (f.bing && !onDomain(link, f.domain)) continue;
+    const title = stripHtml(item.title);
+    const summary = stripHtml(item.contentSnippet || item.summary || item.content).slice(0, 400);
+    // Broad feeds (e.g. a whole security blog) keep only posts about the topic's words.
+    if (f.match && !matchesAny(normalizeText(`${title} ${summary}`), f.match)) continue;
     items.push({
-      title: stripHtml(item.title),
+      title,
       link,
       date: item.isoDate || item.pubDate,
-      summary: stripHtml(item.contentSnippet || item.summary || item.content).slice(0, 400),
+      summary,
       image: pickImage(item),
       source: f.source,
       feedUrl: f.feedUrl || f.url,

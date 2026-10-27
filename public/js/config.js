@@ -18,7 +18,10 @@ export const MAX_AGE_HOURS = 72;
  * it uses a Bing News RSS search limited to that site, and only keeps articles
  * whose link really is on that site.
  */
-const feed = (source, domain, url) => ({ source, domain, url });
+const feed = (source, domain, url, options = {}) => ({ source, domain, url, ...options });
+
+// Some feeds cover much more than one topic; `match` keeps only posts about these words.
+const AI_WORDS = ["ai", "llm", "genai", "generative ai", "machine learning", "prompt injection", "jailbreak", "model", "agent", "agentic", "copilot", "chatgpt", "gemini", "claude"];
 const bing = (source, domain, query, mkt = "en-US") => ({
   source, domain, bing: true,
   url: `https://www.bing.com/news/search?q=${encodeURIComponent(query)}&format=rss&mkt=${mkt}`,
@@ -27,6 +30,7 @@ const bing = (source, domain, query, mkt = "en-US") => ({
 /**
  * Topics, in display order. Each topic has:
  *  - feeds:    feed() / bing() entries whose articles belong to the topic outright
+ *  - maxAgeDays: (optional) keep stories this long; default is MAX_AGE_HOURS
  *  - keywords: extra matching — articles from ANY feed whose title/summary hits
  *              one of these also show up here (e.g. a BBC story about a drone strike → War)
  */
@@ -204,15 +208,17 @@ export const TOPICS = [
   // ---- More topics (from your example) ----
   {
     id: "alerts",
+    maxAgeDays: 7,
     label: "Alerts & Notices",
     icon: "🚨",
     feeds: [
       feed("Ynet", "ynet.co.il", "https://www.ynet.co.il/Integration/StoryRss6.xml"),
       bing("Ynet", "ynet.co.il", "site:ynet.co.il מחיר הדלק", "he-IL"),
-      bing("Israel Ministry of Energy", "gov.il", "site:gov.il (fuel price OR gasoline price OR מחיר הדלק OR בנזין)", "he-IL"),
-      bing("Bank of Israel", "boi.org.il", "site:boi.org.il (interest rate OR inflation OR ריבית OR אינפלציה)", "he-IL"),
-      bing("Israel Government", "gov.il", "site:gov.il (recall OR ריקול OR road closure OR public transport disruption OR electricity tariff OR water tariff)", "he-IL"),
-      bing("Home Front Command", "oref.org.il", "site:oref.org.il (guidelines OR instructions OR הנחיות)", "he-IL"),
+      bing("Globes", "globes.co.il", "site:globes.co.il (מחיר הדלק OR מחירי הדלק OR בנזין)", "he-IL"),
+      bing("Globes", "globes.co.il", "site:globes.co.il בנק ישראל (ריבית OR אינפלציה)", "he-IL"),
+      bing("Ynet", "ynet.co.il", "site:ynet.co.il פיקוד העורף הנחיות", "he-IL"),
+      bing("Ynet", "ynet.co.il", "site:ynet.co.il (ריקול OR סגירת כבישים OR שביתה בתחבורה הציבורית OR תעריף החשמל OR תעריף המים)", "he-IL"),
+      bing("Times of Israel", "timesofisrael.com", "site:timesofisrael.com (Home Front Command OR Bank of Israel interest rate OR fuel prices)"),
     ],
     keywords: ["פיקוד העורף", "home front command", "ריקול", "product recall"],
   },
@@ -254,22 +260,23 @@ export const TOPICS = [
   },
   {
     id: "ai-security",
+    maxAgeDays: 30,
     label: "AI Security & Red Teaming",
     icon: "🧨",
     feeds: [
-      bing("OWASP", "owasp.org", "site:owasp.org (LLM OR AI OR GenAI) (security OR prompt injection OR red team OR jailbreak)"),
-      bing("Microsoft Security", "microsoft.com", "site:microsoft.com/en-us/security/blog (AI OR LLM) (security OR prompt injection OR red team OR jailbreak OR pentesting)"),
-      bing("Google Security Blog", "security.googleblog.com", "site:security.googleblog.com (AI OR LLM) (security OR prompt injection OR red team OR jailbreak)"),
+      feed("OWASP GenAI", "owasp.org", "https://genai.owasp.org/feed/"),
+      feed("Microsoft Security", "microsoft.com", "https://www.microsoft.com/en-us/security/blog/feed/", { match: AI_WORDS }),
+      feed("Google Security Blog", "googleblog.com", "https://security.googleblog.com/feeds/posts/default", { match: AI_WORDS }),
       bing("OpenAI", "openai.com", "site:openai.com (AI security OR red teaming OR prompt injection OR jailbreak OR safeguard bypass)"),
       bing("Anthropic", "anthropic.com", "site:anthropic.com/research (AI security OR red teaming OR prompt injection OR jailbreak OR safeguard bypass)"),
       bing("PortSwigger Research", "portswigger.net", "site:portswigger.net/research (AI OR LLM) (prompt injection OR jailbreak OR security OR pentesting)"),
-      bing("Unit 42", "paloaltonetworks.com", "site:unit42.paloaltonetworks.com (AI OR LLM) (security OR prompt injection OR jailbreak OR attack)"),
-      bing("Mandiant", "google.com", "site:cloud.google.com/blog/topics/threat-intelligence (AI OR LLM) (security OR prompt injection OR jailbreak OR attack)"),
+      feed("Unit 42", "paloaltonetworks.com", "https://unit42.paloaltonetworks.com/feed/", { match: AI_WORDS }),
     ],
     keywords: ["prompt injection", "jailbreak", "red teaming", "red team", "ai security", "llm security", "model poisoning"],
   },
   {
     id: "cyber-learning",
+    maxAgeDays: 30,
     label: "Cyber Learning",
     icon: "🎓",
     feeds: [
@@ -329,6 +336,7 @@ export const TOPICS = [
   },
   {
     id: "lifehacks",
+    maxAgeDays: 14,
     label: "Life Hacks & Tips",
     icon: "💡",
     feeds: [
@@ -341,6 +349,7 @@ export const TOPICS = [
   },
   {
     id: "intelligence",
+    maxAgeDays: 14,
     label: "Intelligence",
     icon: "🕵️",
     feeds: [

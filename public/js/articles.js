@@ -36,18 +36,21 @@ function hash(s) {
  */
 export function buildArticles(rawItems) {
   const feedToTopics = new Map();
+  const maxAgeMs = new Map(); // feed → how long its stories stay (longest of its topics)
   for (const t of TOPICS) for (const f of t.feeds) {
     if (!feedToTopics.has(f.url)) feedToTopics.set(f.url, new Set());
     feedToTopics.get(f.url).add(t.id);
+    const ms = (t.maxAgeDays ? t.maxAgeDays * 24 : MAX_AGE_HOURS) * 3600 * 1000;
+    maxAgeMs.set(f.url, Math.max(maxAgeMs.get(f.url) || 0, ms));
   }
-  const cutoff = Date.now() - MAX_AGE_HOURS * 3600 * 1000;
+  const defaultMaxAgeMs = MAX_AGE_HOURS * 3600 * 1000;
   const byKey = new Map();
 
   for (const item of rawItems) {
     if (!item.title) continue;
     let published = new Date(item.date || Date.now());
     if (isNaN(published)) published = new Date();
-    if (published.getTime() < cutoff) continue;
+    if (published.getTime() < Date.now() - (maxAgeMs.get(item.feedUrl) || defaultMaxAgeMs)) continue;
     if (published.getTime() > Date.now()) published = new Date();
 
     // Same story in several feeds → keep one, merge topics.
