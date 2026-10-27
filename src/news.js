@@ -106,6 +106,21 @@ async function fetchWithFallback(f) {
   }
 }
 
+/** Like Promise.allSettled(items.map(fn)), but runs at most `limit` at a time. */
+async function mapLimited(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      try { results[i] = { status: "fulfilled", value: await fn(items[i]) }; }
+      catch (reason) { results[i] = { status: "rejected", reason }; }
+    }
+  }
+  await Promise.all(Array.from({ length: limit }, worker));
+  return results;
+}
+
 let cache = { at: 0, data: null };
 
 /** { articles, sources: [{ source, url, ok, count, error }], updatedAt } */
@@ -113,7 +128,8 @@ export async function fetchNews() {
   if (cache.data && Date.now() - cache.at < CACHE_MS) return cache.data;
 
   const unique = [...new Map(TOPICS.flatMap((t) => t.feeds).map((f) => [f.url, f])).values()];
-  const results = await Promise.allSettled(unique.map(fetchWithFallback));
+  // At most this many feeds at once, so Bing and the publishers don't start refusing.
+  const results = await mapLimited(unique, 16, fetchWithFallback);
   const raw = [];
   const sources = results.map((r, i) => {
     const f = unique[i];
