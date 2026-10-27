@@ -142,6 +142,7 @@ async function fetchFeed(f) {
       summary,
       image: pickImage(item),
       source: f.source,
+      domain: f.domain,
       feedUrl: f.feedUrl || f.url,
     });
   }

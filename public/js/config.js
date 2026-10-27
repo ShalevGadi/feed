@@ -38,6 +38,7 @@ export const TOPICS = [
   {
     id: "world",
     label: "World",
+    he: "עולם",
     icon: "🌍",
     feeds: [
       bing("Reuters", "reuters.com", "site:reuters.com/world world"),
@@ -53,6 +54,7 @@ export const TOPICS = [
   {
     id: "israel",
     label: "Israel",
+    he: "ישראל",
     icon: "🇮🇱",
     // Israeli sources only (English + Hebrew)
     feeds: [
@@ -72,6 +74,7 @@ export const TOPICS = [
   {
     id: "war",
     label: "War & Defense",
+    he: "מלחמה וביטחון",
     icon: "🛡️",
     feeds: [
       bing("Reuters", "reuters.com", "site:reuters.com (war OR military OR missile OR ceasefire)"),
@@ -88,6 +91,7 @@ export const TOPICS = [
   {
     id: "mideast",
     label: "Middle East",
+    he: "המזרח התיכון",
     icon: "🕌",
     feeds: [
       bing("Reuters", "reuters.com", "site:reuters.com/world/middle-east"),
@@ -105,6 +109,7 @@ export const TOPICS = [
   {
     id: "tech",
     label: "Tech",
+    he: "טכנולוגיה",
     icon: "💻",
     feeds: [
       feed("The Verge", "theverge.com", "https://www.theverge.com/rss/index.xml"),
@@ -117,6 +122,7 @@ export const TOPICS = [
   {
     id: "cyber",
     label: "Cyber & Hacking",
+    he: "סייבר והאקינג",
     icon: "🔐",
     feeds: [
       feed("The Hacker News", "thehackernews.com", "https://feeds.feedburner.com/TheHackersNews"),
@@ -133,6 +139,7 @@ export const TOPICS = [
   {
     id: "science",
     label: "Science",
+    he: "מדע",
     icon: "🔬",
     feeds: [
       feed("ScienceDaily", "sciencedaily.com", "https://www.sciencedaily.com/rss/top/science.xml"),
@@ -146,6 +153,7 @@ export const TOPICS = [
   {
     id: "gaming",
     label: "Gaming",
+    he: "גיימינג",
     icon: "🎮",
     feeds: [
       feed("PC Gamer", "pcgamer.com", "https://www.pcgamer.com/rss/"),
@@ -158,6 +166,7 @@ export const TOPICS = [
   {
     id: "ai",
     label: "AI",
+    he: "בינה מלאכותית",
     icon: "🤖",
     feeds: [
       feed("OpenAI", "openai.com", "https://openai.com/news/rss.xml"),
@@ -176,6 +185,7 @@ export const TOPICS = [
   {
     id: "xr",
     label: "XR / VR / AR",
+    he: "מציאות מדומה ורבודה",
     icon: "🥽",
     feeds: [
       bing("Meta Newsroom", "about.fb.com", "site:about.fb.com/news (Quest OR VR OR AR OR smart glasses)"),
@@ -192,6 +202,7 @@ export const TOPICS = [
   {
     id: "ai-usecases",
     label: "AI Use Cases",
+    he: "שימושים בבינה מלאכותית",
     icon: "🛠️",
     feeds: [
       feed("AWS Machine Learning Blog", "amazon.com", "https://aws.amazon.com/blogs/machine-learning/feed/"),
@@ -210,6 +221,7 @@ export const TOPICS = [
     id: "alerts",
     maxAgeDays: 7,
     label: "Alerts & Notices",
+    he: "התראות והודעות",
     icon: "🚨",
     feeds: [
       feed("Ynet", "ynet.co.il", "https://www.ynet.co.il/Integration/StoryRss6.xml"),
@@ -225,6 +237,7 @@ export const TOPICS = [
   {
     id: "economy",
     label: "Money & Economy",
+    he: "כסף וכלכלה",
     icon: "💰",
     feeds: [
       bing("Reuters", "reuters.com", "site:reuters.com (economy OR inflation OR interest rates OR jobs OR central bank)"),
@@ -237,6 +250,7 @@ export const TOPICS = [
   {
     id: "markets",
     label: "Stocks & Markets",
+    he: "מניות ושווקים",
     icon: "📈",
     feeds: [
       bing("Reuters", "reuters.com", "site:reuters.com/markets (stocks OR earnings OR shares OR index)"),
@@ -249,6 +263,7 @@ export const TOPICS = [
   {
     id: "crypto",
     label: "Crypto",
+    he: "קריפטו",
     icon: "🪙",
     feeds: [
       feed("CoinDesk", "coindesk.com", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
@@ -262,6 +277,7 @@ export const TOPICS = [
     id: "ai-security",
     maxAgeDays: 30,
     label: "AI Security & Red Teaming",
+    he: "אבטחת AI ו-Red Teaming",
     icon: "🧨",
     feeds: [
       feed("OWASP GenAI", "owasp.org", "https://genai.owasp.org/feed/"),
@@ -278,6 +294,7 @@ export const TOPICS = [
     id: "cyber-learning",
     maxAgeDays: 30,
     label: "Cyber Learning",
+    he: "לימודי סייבר",
     icon: "🎓",
     feeds: [
       feed("PortSwigger Research", "portswigger.net", "https://portswigger.net/research/rss"),
@@ -290,6 +307,7 @@ export const TOPICS = [
   {
     id: "coding",
     label: "Computers & Coding",
+    he: "מחשבים ותכנות",
     icon: "🖥️",
     feeds: [
       feed("Phoronix", "phoronix.com", "https://www.phoronix.com/rss.php"),
@@ -303,6 +321,7 @@ export const TOPICS = [
   {
     id: "gadgets",
     label: "Gadgets",
+    he: "גאדג'טים",
     icon: "📱",
     feeds: [
       feed("Engadget", "engadget.com", "https://www.engadget.com/rss.xml"),
@@ -314,6 +333,7 @@ export const TOPICS = [
   {
     id: "game-deals",
     label: "Game Deals",
+    he: "מבצעי משחקים",
     icon: "🏷️",
     feeds: [
       bing("PC Gamer", "pcgamer.com", "site:pcgamer.com (game deal OR gaming sale OR free game)"),
@@ -325,6 +345,7 @@ export const TOPICS = [
   {
     id: "deals",
     label: "Deals & Sales Events",
+    he: "מבצעים ואירועי מכירות",
     icon: "🛒",
     feeds: [
       bing("The Verge", "theverge.com", "site:theverge.com (Black Friday OR Cyber Monday OR Prime Day OR deal event)"),
@@ -338,6 +359,7 @@ export const TOPICS = [
     id: "lifehacks",
     maxAgeDays: 14,
     label: "Life Hacks & Tips",
+    he: "טיפים ולייף-האקים",
     icon: "💡",
     feeds: [
       feed("How-To Geek", "howtogeek.com", "https://www.howtogeek.com/feed/"),
@@ -351,6 +373,7 @@ export const TOPICS = [
     id: "intelligence",
     maxAgeDays: 14,
     label: "Intelligence",
+    he: "מודיעין",
     icon: "🕵️",
     feeds: [
       feed("Bellingcat", "bellingcat.com", "https://www.bellingcat.com/feed/"),
@@ -362,6 +385,7 @@ export const TOPICS = [
   {
     id: "space",
     label: "Space & Astronomy",
+    he: "חלל ואסטרונומיה",
     icon: "🔭",
     feeds: [
       feed("ESA", "esa.int", "https://www.esa.int/rssfeed/Our_Activities/Space_Science"),
@@ -374,6 +398,7 @@ export const TOPICS = [
   {
     id: "robotics",
     label: "Robotics",
+    he: "רובוטיקה",
     icon: "🦾",
     feeds: [
       feed("IEEE Spectrum", "ieee.org", "https://spectrum.ieee.org/feeds/topic/robotics.rss"),
@@ -385,6 +410,7 @@ export const TOPICS = [
   {
     id: "energy",
     label: "Energy & Sustainability",
+    he: "אנרגיה וקיימות",
     icon: "🔋",
     feeds: [
       feed("Canary Media", "canarymedia.com", "https://www.canarymedia.com/rss"),
@@ -404,6 +430,7 @@ export const HEADLINE_ALERTS = [
   {
     id: "fuel",
     label: "Gas prices",
+    he: "מחירי דלק",
     icon: "⛽",
     keywords: [
       "gas price", "fuel price", "petrol price", "price of gasoline", "price of fuel",
@@ -413,12 +440,14 @@ export const HEADLINE_ALERTS = [
   {
     id: "election",
     label: "Elections",
+    he: "בחירות",
     icon: "🗳️",
     keywords: ["election", "polls show", "ballot", "בחירות", "סקר מנדטים", "ועדת הבחירות", "קלפי"],
   },
   {
     id: "weather",
     label: "Weather warning",
+    he: "אזהרת מזג אוויר",
     icon: "⛈️",
     keywords: [
       "heat wave", "heatwave", "storm warning", "flood warning", "flash flood", "sandstorm",
@@ -428,12 +457,14 @@ export const HEADLINE_ALERTS = [
   {
     id: "notice",
     label: "Official notice",
+    he: "הודעה רשמית",
     icon: "📢",
     keywords: ["פיקוד העורף", "home front command", "ריקול", "product recall"],
   },
   {
     id: "sales",
     label: "Sales",
+    he: "מבצעים",
     icon: "🛍️",
     keywords: ["black friday", "black november", "cyber monday", "prime day", "singles day", "בלאק פריידיי", "בלאק נובמבר", "סייבר מאנדיי"],
   },
@@ -441,11 +472,11 @@ export const HEADLINE_ALERTS = [
 
 /**
  * Fixed special days (beyond Jewish/Israeli holidays, which come from Hebcal).
- * Dates are YYYY-MM-DD. Add anything you care about.
+ * Dates are YYYY-MM-DD; `he` is the Hebrew title. Add anything you care about.
  */
 export const SPECIAL_DAYS = [
-  { date: "2026-10-27", title: "Knesset elections (26th Knesset)", icon: "🗳️", kind: "election" },
-  { date: "2026-11-03", title: "US midterm elections", icon: "🇺🇸", kind: "election" },
+  { date: "2026-10-27", title: "Knesset elections (26th Knesset)", he: "הבחירות לכנסת ה-26", icon: "🗳️", kind: "election" },
+  { date: "2026-11-03", title: "US midterm elections", he: "בחירות האמצע בארה״ב", icon: "🇺🇸", kind: "election" },
 ];
 
 // How many days ahead to look for holidays / special days.

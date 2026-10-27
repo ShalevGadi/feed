@@ -1,6 +1,7 @@
 import { HEADLINE_ALERTS, SPECIAL_DAYS, LOOKAHEAD_DAYS, WEATHER_THRESHOLDS } from "./config.js";
 import { matchesAny } from "./articles.js";
 import { getLocation } from "./location.js";
+import { t, label, getLang } from "./i18n.js";
 
 const DAY = 24 * 3600 * 1000;
 
@@ -15,9 +16,9 @@ function daysUntil(dateStr) {
 }
 
 function whenLabel(n) {
-  if (n === 0) return "Today";
-  if (n === 1) return "Tomorrow";
-  return `In ${n} days`;
+  if (n === 0) return t("whenToday");
+  if (n === 1) return t("whenTomorrow");
+  return t("whenIn", n);
 }
 
 // Open-Meteo and Hebcal allow web pages to call them directly.
@@ -40,19 +41,20 @@ export async function weather() {
     `&timezone=${encodeURIComponent(LOCATION.timezone)}&forecast_days=3`;
   const data = await getJson(url);
   const d = data.daily;
-  const t = WEATHER_THRESHOLDS;
+  const th = WEATHER_THRESHOLDS;
   const alerts = [];
 
   d.time.forEach((date, i) => {
     const when = whenLabel(daysUntil(date));
-    const push = (icon, title, severity) =>
-      alerts.push({ id: `wx-${date}-${title}`, kind: "weather", icon, title: `${title} — ${when}`, detail: LOCATION.name, date, severity });
-    if (d.temperature_2m_max[i] >= t.heatC) push("🔥", `Heat: up to ${Math.round(d.temperature_2m_max[i])}°C`, "danger");
-    if (d.temperature_2m_min[i] <= t.coldC) push("🥶", `Cold: down to ${Math.round(d.temperature_2m_min[i])}°C`, "warn");
-    if (d.precipitation_sum[i] >= t.rainMm) push("🌧️", `Heavy rain: ${Math.round(d.precipitation_sum[i])} mm`, "warn");
-    if (d.wind_gusts_10m_max[i] >= t.gustKmh) push("💨", `Strong winds: gusts ${Math.round(d.wind_gusts_10m_max[i])} km/h`, "warn");
-    if (WMO_STORM.has(d.weather_code[i])) push("⛈️", "Thunderstorms", "warn");
-    if (WMO_SNOW.has(d.weather_code[i])) push("❄️", "Snow", "warn");
+    // `kind` keeps the alert id the same in both languages (so dismissing sticks).
+    const push = (icon, kind, title, severity) =>
+      alerts.push({ id: `wx-${date}-${kind}`, kind: "weather", icon, title: `${title} — ${when}`, detail: LOCATION.name, date, severity });
+    if (d.temperature_2m_max[i] >= th.heatC) push("🔥", "heat", t("heat", Math.round(d.temperature_2m_max[i])), "danger");
+    if (d.temperature_2m_min[i] <= th.coldC) push("🥶", "cold", t("cold", Math.round(d.temperature_2m_min[i])), "warn");
+    if (d.precipitation_sum[i] >= th.rainMm) push("🌧️", "rain", t("rain", Math.round(d.precipitation_sum[i])), "warn");
+    if (d.wind_gusts_10m_max[i] >= th.gustKmh) push("💨", "wind", t("wind", Math.round(d.wind_gusts_10m_max[i])), "warn");
+    if (WMO_STORM.has(d.weather_code[i])) push("⛈️", "storm", t("storms"), "warn");
+    if (WMO_SNOW.has(d.weather_code[i])) push("❄️", "snow", t("snow"), "warn");
   });
 
   return {
@@ -86,7 +88,7 @@ export async function holidays() {
         id: `hol-${date}-${it.title}`,
         kind: "holiday",
         icon: "🕎",
-        title: `${it.title}${it.hebrew ? ` · ${it.hebrew}` : ""}`,
+        title: getLang() === "he" && it.hebrew ? it.hebrew : `${it.title}${it.hebrew ? ` · ${it.hebrew}` : ""}`,
         detail: whenLabel(n),
         date,
         link: it.link,
@@ -106,9 +108,9 @@ function shoppingDays(year) {
   const thanksgiving = nthWeekdayOfMonth(year, 10, 4, 4); // 4th Thursday of November
   const iso = (d) => d.toISOString().slice(0, 10);
   return [
-    { date: `${year}-11-11`, title: "Singles Day (11.11) sales", icon: "🛍️" },
-    { date: iso(new Date(thanksgiving.getTime() + DAY)), title: "Black Friday", icon: "🖤" },
-    { date: iso(new Date(thanksgiving.getTime() + 4 * DAY)), title: "Cyber Monday", icon: "💻" },
+    { date: `${year}-11-11`, key: "singlesDay", title: t("singlesDay"), icon: "🛍️" },
+    { date: iso(new Date(thanksgiving.getTime() + DAY)), key: "blackFriday", title: t("blackFriday"), icon: "🖤" },
+    { date: iso(new Date(thanksgiving.getTime() + 4 * DAY)), key: "cyberMonday", title: t("cyberMonday"), icon: "💻" },
   ].map((s) => ({ ...s, kind: "sales" }));
 }
 
@@ -121,10 +123,10 @@ export function specialDays() {
     .map((s) => ({ ...s, n: daysUntil(s.date) }))
     .filter((s) => s.n >= 0 && s.n <= LOOKAHEAD_DAYS)
     .map((s) => ({
-      id: `day-${s.date}-${s.title}`,
+      id: `day-${s.date}-${s.key || s.title}`,
       kind: s.kind,
       icon: s.icon,
-      title: s.title,
+      title: (getLang() === "he" && s.he) || s.title,
       detail: whenLabel(s.n),
       date: s.date,
       severity: s.n <= 1 ? "warn" : "info",
@@ -134,7 +136,7 @@ export function specialDays() {
   if (month === 11) {
     alerts.push({
       id: `black-november-${year}`, kind: "sales", icon: "🛒",
-      title: "Black November — sales season is on", detail: "Watch for deals all month", severity: "info",
+      title: t("blackNovember"), detail: t("blackNovemberDetail"), severity: "info",
     });
   }
   // Israel's regulated fuel price is updated at the start of each month.
@@ -142,8 +144,8 @@ export function specialDays() {
   if (day >= lastDay - 2) {
     alerts.push({
       id: `fuel-update-${year}-${month}`, kind: "fuel", icon: "⛽",
-      title: "Fuel price update coming on the 1st",
-      detail: "Fill up before or after, depending on the announcement", severity: "info",
+      title: t("fuelUpdate"),
+      detail: t("fuelUpdateDetail"), severity: "info",
     });
   }
   return alerts;
@@ -161,7 +163,7 @@ export function headlineAlerts(articles) {
     for (const a of hits) {
       out.push({
         id: `hl-${a.id}`, kind: det.id, icon: det.icon, title: a.title,
-        detail: `${det.label} · ${a.source}`, link: a.link, date: a.published,
+        detail: `${label(det)} · ${a.source}`, link: a.link, date: a.published,
         severity: det.id === "weather" ? "warn" : "info",
       });
     }

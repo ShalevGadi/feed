@@ -2,29 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>My News</title>
+  <meta name="theme-color" content="#2563eb" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="My News" />
+  <script>
+    // Apply the saved theme before the page draws, so it doesn't flash.
+    try { const th = localStorage.getItem("theme"); if (th === "light" || th === "dark") document.documentElement.dataset.theme = th; } catch {}
+  </script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="top">
-    <div class="brand">📰 <span>My News</span></div>
-    <button id="weather" class="weather" title="Change weather city">📍</button>
-    <input id="search" type="search" placeholder="Search headlines…" autocomplete="off" />
-    <button id="refresh" title="Refresh now">↻</button>
+  <header class="top" id="top">
+    <div class="brand">📰 <span data-i18n="appName">My News</span></div>
+    <button id="weather" class="weather" data-i18n-title="changeCity">📍</button>
+    <input id="search" type="search" data-i18n-placeholder="search" autocomplete="off" />
+    <button id="theme" class="icon-btn" data-i18n-title="theme">🌓</button>
+    <button id="refresh" class="icon-btn" data-i18n-title="refresh">↻</button>
+    <button id="open-settings" class="icon-btn" data-i18n-title="settings">⚙️</button>
   </header>
 
   <div id="status" class="status" hidden></div>
 
   <section class="alerts-wrap">
-    <h2>Alerts</h2>
-    <div id="alerts" class="alerts"><div class="muted">Loading…</div></div>
+    <h2 data-i18n="alerts">Alerts</h2>
+    <div id="alerts" class="alerts"></div>
   </section>
 
   <section id="digest" class="digest" hidden>
     <details open>
-      <summary>✨ Your briefing <span id="digest-at" class="muted"></span></summary>
-      <div id="digest-body" class="digest-body muted">Writing your briefing…</div>
+      <summary><span data-i18n="briefing"></span> <span id="digest-at" class="muted"></span></summary>
+      <div id="digest-body" class="digest-body muted"></div>
     </details>
   </section>
 
@@ -32,13 +44,21 @@
 
   <div class="toolbar">
     <span id="count" class="muted"></span>
-    <div id="sort" class="sort" hidden>
-      <button data-sort="latest" class="on">Latest</button>
-      <button data-sort="important">Most important</button>
+    <div class="toolbar-right">
+      <div id="sort" class="seg" hidden>
+        <button data-sort="latest" data-i18n="latest"></button>
+        <button data-sort="important" data-i18n="mostImportant"></button>
+      </div>
+      <div id="langfilter" class="seg">
+        <button data-lang="all" data-i18n="langAll"></button>
+        <button data-lang="he" data-i18n="langHe"></button>
+        <button data-lang="en" data-i18n="langEn"></button>
+      </div>
     </div>
   </div>
 
   <main id="feed" class="feed-wrap"></main>
+
   <footer class="muted">
     <div id="updated"></div>
     <details id="sources" class="sources" hidden>
@@ -46,6 +66,34 @@
       <ul id="sources-list"></ul>
     </details>
   </footer>
+
+  <dialog id="settings" class="settings">
+    <form method="dialog">
+      <h2 class="settings-title" data-i18n="settingsTitle"></h2>
+
+      <label class="field-label" data-i18n="uiLanguage"></label>
+      <div class="seg" id="set-ui-lang">
+        <button type="button" data-value="en">English</button>
+        <button type="button" data-value="he">עברית</button>
+      </div>
+
+      <label class="field-label" data-i18n="themeLabel"></label>
+      <div class="seg" id="set-theme">
+        <button type="button" data-value="auto" data-i18n="themeAuto"></button>
+        <button type="button" data-value="light" data-i18n="themeLight"></button>
+        <button type="button" data-value="dark" data-i18n="themeDark"></button>
+      </div>
+
+      <label class="field-label" data-i18n="topicsLabel"></label>
+      <ul id="set-topics" class="topic-list"></ul>
+
+      <div class="settings-actions">
+        <button type="button" id="install" hidden data-i18n="install"></button>
+        <button type="button" id="reset-topics" data-i18n="reset"></button>
+        <button value="close" class="primary" data-i18n="done"></button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module" src="js/app.js"></script>
 </body>

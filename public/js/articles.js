@@ -74,6 +74,7 @@ export function buildArticles(rawItems) {
       summary: item.summary,
       link: item.link,
       source: item.source,
+      domain: item.domain,
       image: item.image,
       published: published.toISOString(),
       topics,

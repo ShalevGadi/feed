@@ -22,6 +22,25 @@ An article can appear in several topics. Each topic has its own feeds, and keywo
 
 Click the weather in the header to change your city. The choice is saved in your browser.
 
+## Using it
+
+- **Sections:** one per topic. The newest story is the big one, and **See all →** opens the whole topic.
+- **Topic bar:** stays at the top while you scroll. Tap a topic to jump to its section.
+- **⚙️ Settings:**
+  - hide topics and reorder them
+  - interface language (English / עברית)
+  - theme (auto / light / dark)
+  - install as an app
+- **☆ Save** a story to keep it in the ⭐ Saved section.
+- **Read and new:** stories you opened fade out. **New** marks what arrived since your last visit.
+- **Same story, several sources:** shown as one card with "+N more sources".
+- **Language filter:** show All, עברית or English stories.
+- **Alerts:** coloured by urgency (red, orange, blue). Tap ✕ to dismiss one.
+- **🌓** switches between light and dark.
+- **Install it:** Android/Chrome uses ⚙️ → Install app. iPhone uses Share → Add to Home Screen. Offline, it shows the last news you loaded.
+
+Your settings, saved stories and read marks stay in your browser only.
+
 ## 100% free
 
 No payments, ever. RSS feeds, Bing News RSS, Open-Meteo, Hebcal and Vercel's free (Hobby) plan cost nothing.
