@@ -354,7 +354,7 @@ export const TOPICS = [
     icon: "🕵️",
     feeds: [
       feed("Bellingcat", "bellingcat.com", "https://www.bellingcat.com/feed/"),
-      feed("Lawfare", "lawfaremedia.org", "https://www.lawfaremedia.org/rss.xml"),
+      bing("Lawfare", "lawfaremedia.org", "site:lawfaremedia.org"),
       feed("The Record", "therecord.media", "https://therecord.media/feed"),
     ],
     keywords: ["espionage", "intelligence agency", "mossad", "cia", "osint", "spy"],
