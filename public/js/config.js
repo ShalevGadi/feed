@@ -155,7 +155,7 @@ export const TOPICS = [
     label: "AI",
     icon: "🤖",
     feeds: [
-      bing("OpenAI", "openai.com", "site:openai.com/index"),
+      feed("OpenAI", "openai.com", "https://openai.com/news/rss.xml"),
       bing("Anthropic", "anthropic.com", "site:anthropic.com/news"),
       feed("The Verge", "theverge.com", "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"),
       feed("Ars Technica", "arstechnica.com", "https://arstechnica.com/ai/feed/"),

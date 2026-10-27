@@ -74,10 +74,36 @@ async function fetchFeed(f) {
       summary: stripHtml(item.contentSnippet || item.summary || item.content).slice(0, 400),
       image: pickImage(item),
       source: f.source,
-      feedUrl: f.url,
+      feedUrl: f.feedUrl || f.url,
     });
   }
   return items;
+}
+
+// When a publisher's own feed refuses us (many sites block server traffic),
+// fall back to a Bing News search limited to that publisher's site.
+function bingFallback(f) {
+  const mkt = /\.il$/.test(f.domain) ? "he-IL" : "en-US";
+  return {
+    ...f,
+    bing: true,
+    url: `https://www.bing.com/news/search?q=${encodeURIComponent(`site:${f.domain}`)}&format=rss&mkt=${mkt}`,
+    feedUrl: f.url, // keep the original feed's topics
+  };
+}
+
+async function fetchWithFallback(f) {
+  try {
+    return { items: await fetchFeed(f) };
+  } catch (err) {
+    if (f.bing) throw err;
+    const why = err?.name === "TimeoutError" ? "no answer in 8s" : err?.message || "failed";
+    try {
+      return { items: await fetchFeed(bingFallback(f)), via: `Bing backup (own feed: ${why})` };
+    } catch {
+      throw err;
+    }
+  }
 }
 
 let cache = { at: 0, data: null };
@@ -87,13 +113,13 @@ export async function fetchNews() {
   if (cache.data && Date.now() - cache.at < CACHE_MS) return cache.data;
 
   const unique = [...new Map(TOPICS.flatMap((t) => t.feeds).map((f) => [f.url, f])).values()];
-  const results = await Promise.allSettled(unique.map(fetchFeed));
+  const results = await Promise.allSettled(unique.map(fetchWithFallback));
   const raw = [];
   const sources = results.map((r, i) => {
     const f = unique[i];
     if (r.status === "fulfilled") {
-      raw.push(...r.value);
-      return { source: f.source, url: f.url, ok: true, count: r.value.length };
+      raw.push(...r.value.items);
+      return { source: f.source, url: f.url, ok: true, count: r.value.items.length, via: r.value.via };
     }
     const why = r.reason?.name === "TimeoutError" ? "no answer in 8s" : r.reason?.message || "failed";
     return { source: f.source, url: f.url, ok: false, error: why };

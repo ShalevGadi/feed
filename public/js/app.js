@@ -152,11 +152,13 @@ function renderSources() {
   if (!all.length) return;
   const bad = all.filter((s) => !s.ok);
   const empty = all.filter((s) => s.ok && !s.count);
+  const backup = all.filter((s) => s.ok && s.count && s.via);
   $("#sources").hidden = false;
   $("#sources-summary").textContent = `Sources: ${all.length - bad.length} of ${all.length} loaded`;
-  $("#sources-list").innerHTML = bad.length || empty.length
+  $("#sources-list").innerHTML = bad.length || empty.length || backup.length
     ? [...bad.map((s) => `<li><b>${esc(s.source)}</b> — ${esc(s.error)}<br><code>${esc(s.url)}</code></li>`),
-       ...empty.map((s) => `<li><b>${esc(s.source)}</b> — loaded, but no matching stories right now</li>`)].join("")
+       ...empty.map((s) => `<li><b>${esc(s.source)}</b> — loaded, but no matching stories right now</li>`),
+       ...backup.map((s) => `<li><b>${esc(s.source)}</b> — loaded through ${esc(s.via)}</li>`)].join("")
     : "<li>All sources loaded.</li>";
 }
 
