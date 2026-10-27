@@ -56,12 +56,16 @@ export function buildArticles(rawItems) {
     // Same story in several feeds → keep one, merge topics.
     const key = (item.link || "").replace(/[?#].*$/, "") || item.title.toLowerCase();
     const text = normalizeText(`${item.title} ${item.summary}`);
-    const topics = new Set(feedToTopics.get(item.feedUrl));
+    const feedTopics = feedToTopics.get(item.feedUrl) || new Set();
+    const topics = new Set(feedTopics);
     for (const t of TOPICS) if (t.keywords.length && matchesAny(text, t.keywords)) topics.add(t.id);
+    // The section a story is shown under: its source's first topic (so it isn't repeated).
+    const primary = TOPICS.find((t) => feedTopics.has(t.id))?.id || TOPICS.find((t) => topics.has(t.id))?.id;
 
     const existing = byKey.get(key);
     if (existing) {
       topics.forEach((t) => existing.topics.add(t));
+      if (!existing.image && item.image) existing.image = item.image;
       continue;
     }
     byKey.set(key, {
@@ -73,6 +77,7 @@ export function buildArticles(rawItems) {
       image: item.image,
       published: published.toISOString(),
       topics,
+      primary,
     });
   }
 

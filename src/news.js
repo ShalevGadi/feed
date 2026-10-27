@@ -26,15 +26,79 @@ function stripHtml(html) {
     .trim();
 }
 
+const first = (v) => (Array.isArray(v) ? v[0] : v);
+
 function pickImage(item) {
-  return (
-    item.enclosure?.url ||
-    item.mediaThumbnail?.$?.url ||
-    item.mediaContent?.$?.url ||
-    (typeof item.newsImage === "string" ? item.newsImage : null) ||
-    (String(item.content || "").match(/<img[^>]+src=["']([^"']+)["']/) || [])[1] ||
-    null
-  );
+  const enclosure = item.enclosure?.url && (!item.enclosure.type || item.enclosure.type.startsWith("image")) ? item.enclosure.url : null;
+  let img =
+    enclosure ||
+    first(item.mediaContent)?.$?.url ||
+    first(item.mediaThumbnail)?.$?.url ||
+    (typeof first(item.newsImage) === "string" ? first(item.newsImage) : null) ||
+    item.itunes?.image ||
+    (String(item["content:encoded"] || item.content || "").match(/<img[^>]+src=["']([^"']+)["']/) || [])[1] ||
+    null;
+  // Bing thumbnails are tiny by default; ask for a card-sized one.
+  if (img && /bing\.(com|net)\/th/.test(img)) img += `${img.includes("?") ? "&" : "?"}w=640&h=360&c=7`;
+  return img && /^https?:\/\//.test(img) ? img : null;
+}
+
+// ---------- Pictures for articles whose feed has none ----------
+// Most article pages name a share picture (og:image) in their <head>.
+const imageCache = new Map(); // link → image URL or null
+const IMAGE_TIMEOUT_MS = 5000;
+const IMAGE_DEADLINE_MS = 9000;
+const MAX_IMAGE_LOOKUPS = 200;
+const SHOWN_PER_SECTION = 8; // keep in step with CARDS_PER_SECTION in public/js/app.js
+
+async function findPageImage(link) {
+  if (imageCache.has(link)) return imageCache.get(link);
+  let image = null;
+  try {
+    const res = await fetch(link, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; PersonalNewsFeed/1.0)", Accept: "text/html" },
+      signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+      redirect: "follow",
+    });
+    if (res.ok && (res.headers.get("content-type") || "").includes("html")) {
+      // Only the <head> is needed: read at most ~300 KB.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let html = "";
+      while (html.length < 300_000) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        html += decoder.decode(value, { stream: true });
+        if (html.includes("</head>")) break;
+      }
+      reader.cancel().catch(() => {});
+      const meta = (prop) =>
+        html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]*content=["']([^"']+)["']`, "i"))?.[1] ||
+        html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']${prop}["']`, "i"))?.[1];
+      const found = meta("og:image") || meta("og:image:url") || meta("twitter:image") || meta("twitter:image:src");
+      if (found) image = new URL(found.replace(/&amp;/g, "&"), res.url || link).href;
+    }
+  } catch {}
+  imageCache.set(link, image);
+  return image;
+}
+
+async function addMissingImages(articles) {
+  // Only the cards shown first in each section (newest per section) need a picture now.
+  const perSection = new Map();
+  const missing = [];
+  for (const a of articles) {
+    const n = perSection.get(a.primary) || 0;
+    if (n >= SHOWN_PER_SECTION) continue;
+    perSection.set(a.primary, n + 1);
+    if (!a.image && /^https?:\/\//.test(a.link || "")) missing.push(a);
+  }
+  missing.splice(MAX_IMAGE_LOOKUPS);
+  const deadline = Date.now() + IMAGE_DEADLINE_MS;
+  await mapLimited(missing, 16, async (a) => {
+    if (Date.now() > deadline && !imageCache.has(a.link)) return;
+    a.image = await findPageImage(a.link);
+  });
 }
 
 // Bing News links point to bing.com and carry the real article address in ?url=.
@@ -145,7 +209,9 @@ export async function fetchNews() {
     return { source: f.source, url: f.url, ok: false, error: why };
   });
 
-  const data = { articles: buildArticles(raw), sources, updatedAt: new Date().toISOString() };
+  const articles = buildArticles(raw);
+  await addMissingImages(articles);
+  const data = { articles, sources, updatedAt: new Date().toISOString() };
   cache = { at: Date.now(), data };
   return data;
 }

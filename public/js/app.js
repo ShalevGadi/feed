@@ -101,24 +101,31 @@ function renderAlerts() {
     : `<div class="muted">${state.loading ? "Checking…" : "Nothing urgent. 🌿"}</div>`;
 }
 
-function renderFeed() {
-  let items = state.data.articles;
-  if (state.topic !== "all") items = items.filter((a) => a.topics.includes(state.topic));
-  if (state.q) {
-    const needle = state.q.toLowerCase();
-    items = items.filter((a) => `${a.title} ${a.summary} ${a.source}`.toLowerCase().includes(needle));
-  }
-  if (state.sort === "important" && state.ai) {
-    items = [...items].sort((a, b) => (b.ai?.importance || 0) - (a.ai?.importance || 0));
-  }
-  const label = Object.fromEntries(TOPICS.map((t) => [t.id, `${t.icon} ${t.label}`]));
-  $("#count").textContent = `${items.length} stories`;
-  $("#feed").innerHTML = items.length
-    ? items
-        .slice(0, 150)
-        .map((a) => `
+const CARDS_PER_SECTION = 8; // keep in step with SHOWN_PER_SECTION in src/news.js
+const topicById = Object.fromEntries(TOPICS.map((t) => [t.id, t]));
+
+// A soft colour per topic, for cards without a picture.
+function topicHue(id) {
+  let h = 0;
+  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return h;
+}
+
+function placeholder(a) {
+  const t = topicById[a.primary] || {};
+  return `<div class="ph" style="--h:${topicHue(a.primary)}"><span class="ph-icon">${t.icon || "📰"}</span><span class="ph-src">${esc(a.source)}</span></div>`;
+}
+
+function card(a, showTags) {
+  const label = (id) => (topicById[id] ? `${topicById[id].icon} ${topicById[id].label}` : id);
+  // If the picture fails to load, swap in the placeholder.
+  const img = a.image
+    ? `<img src="${esc(safeUrl(a.image))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.outerHTML=this.nextElementSibling.innerHTML">` +
+      `<template>${placeholder(a)}</template>`
+    : placeholder(a);
+  return `
       <a class="card" href="${esc(safeUrl(a.link))}" target="_blank" rel="noopener">
-        ${a.image ? `<img src="${esc(safeUrl(a.image))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}
+        <div class="pic">${img}</div>
         <div class="body">
           <div class="meta">
             <span>${esc(a.source)}</span>·<span>${ago(a.published)}</span>
@@ -126,11 +133,65 @@ function renderFeed() {
           </div>
           <h3 dir="auto">${esc(a.title)}</h3>
           <p dir="auto">${esc(a.ai?.summary || a.summary)}</p>
-          <div class="tags">${a.topics.map((t) => `<span class="tag">${esc(label[t] || t)}</span>`).join("")}</div>
+          ${showTags ? `<div class="tags">${a.topics.map((t) => `<span class="tag">${esc(label(t))}</span>`).join("")}</div>` : ""}
         </div>
-      </a>`)
-        .join("")
-    : `<div class="muted">${state.loading ? "Loading the news…" : "No stories here."}</div>`;
+      </a>`;
+}
+
+function sortItems(items) {
+  return state.sort === "important" && state.ai
+    ? [...items].sort((a, b) => (b.ai?.importance || 0) - (a.ai?.importance || 0))
+    : items;
+}
+
+function renderFeed() {
+  const all = state.data.articles;
+  const empty = `<div class="muted">${state.loading ? "Loading the news…" : "No stories here."}</div>`;
+
+  // Searching or one topic picked: one grid with every matching story.
+  if (state.q || state.topic !== "all") {
+    let items = all;
+    if (state.topic !== "all") items = items.filter((a) => a.topics.includes(state.topic));
+    if (state.q) {
+      const needle = state.q.toLowerCase();
+      items = items.filter((a) => `${a.title} ${a.summary} ${a.source}`.toLowerCase().includes(needle));
+    }
+    items = sortItems(items);
+    const t = topicById[state.topic];
+    $("#count").textContent = `${items.length} stories`;
+    $("#feed").innerHTML =
+      `<section class="topic-section">` +
+      (t ? `<h2 class="topic-title">${t.icon} ${esc(t.label)}</h2>` : "") +
+      (items.length ? `<div class="feed">${items.slice(0, 150).map((a) => card(a, true)).join("")}</div>` : empty) +
+      `</section>`;
+    return;
+  }
+
+  // Everything: one section per topic, in topic order, newest cards first.
+  $("#count").textContent = `${all.length} stories`;
+  const sections = TOPICS.map((t) => {
+    const items = sortItems(all.filter((a) => a.primary === t.id));
+    if (!items.length) return "";
+    const more = items.length > CARDS_PER_SECTION
+      ? `<button class="see-all" data-topic="${t.id}">See all ${items.length} →</button>` : "";
+    return `
+    <section class="topic-section" id="topic-${t.id}">
+      <div class="topic-head">
+        <h2 class="topic-title">${t.icon} ${esc(t.label)}</h2>
+        ${more}
+      </div>
+      <div class="feed">${items.slice(0, CARDS_PER_SECTION).map((a) => card(a, false)).join("")}</div>
+    </section>`;
+  }).join("");
+  $("#feed").innerHTML = sections || empty;
+}
+
+function selectTopic(id) {
+  state.topic = id;
+  store.set("topic", id);
+  document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c.dataset.topic === id));
+  renderFeed();
+  $("#topics").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderDigest() {
@@ -303,11 +364,12 @@ async function runAI() {
 
 $("#topics").addEventListener("click", (e) => {
   const btn = e.target.closest("[data-topic]");
-  if (!btn) return;
-  state.topic = btn.dataset.topic;
-  store.set("topic", state.topic);
-  document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === btn));
-  renderFeed();
+  if (btn) selectTopic(btn.dataset.topic);
+});
+
+$("#feed").addEventListener("click", (e) => {
+  const btn = e.target.closest(".see-all");
+  if (btn) selectTopic(btn.dataset.topic);
 });
 
 $("#sort").addEventListener("click", (e) => {
